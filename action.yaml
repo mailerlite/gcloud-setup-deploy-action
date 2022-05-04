@@ -93,7 +93,7 @@ runs:
       shell: bash
       run: |
         if [[ -n "${{ inputs.cluster }}" && -n "${{ inputs.skaffold_profile }}" && -n "${{ inputs.helm_pat }}" ]]; then
-            helm repo add --username ziltoidbot --password ${{ inputs.helm_pat }} remotecompany https://raw.githubusercontent.com/remotecompany/charts/main/index
+            helm repo add --username ziltoidbot --password ${{ inputs.helm_pat }} mailergroup https://raw.githubusercontent.com/mailergroup/charts/main/index
         fi
 
     - name: Skaffold build and deploy ${{ inputs.skaffold_profile }}
