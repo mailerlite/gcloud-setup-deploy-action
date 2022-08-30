@@ -46,6 +46,10 @@ inputs:
     description: "The artifact_registry to setup auth agains e.g: us-east1-docker.pkg.dev"
     required: false
     default: "europe-docker.pkg.dev"
+  helm_app_version:
+    description: "Set this to update the Helm chart appVersion to the current tag"
+    required: false
+    default: ""
   helm_pat:
     description: "PAT for setting up helm repo"
     required: false
@@ -63,6 +67,9 @@ runs:
           else
             echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
           fi
+        fi
+        if [[ -n "${{ inputs.cluster }}" && -n "${{ inputs.skaffold_profile }}" && -n "${{ inputs.helm_app_version }}" ]]; then
+          echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
         fi
 
     - name: Authenticate with Google Cloud
@@ -94,6 +101,13 @@ runs:
       run: |
         if [[ -n "${{ inputs.cluster }}" && -n "${{ inputs.skaffold_profile }}" && -n "${{ inputs.helm_pat }}" ]]; then
             helm repo add --username ziltoidbot --password ${{ inputs.helm_pat }} mailergroup https://raw.githubusercontent.com/mailergroup/charts/main/index
+        fi
+
+    - name: Set appVersion
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.cluster }}" && -n "${{ inputs.skaffold_profile }}" && -n "${{ inputs.helm_app_version }}" ]]; then
+          sed -i "s/^appVersion:.*$/appVersion: ${{ steps.get_version.outputs.VERSION }}/" helm/Chart.yaml
         fi
 
     - name: Skaffold build and deploy ${{ inputs.skaffold_profile }}
