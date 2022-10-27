@@ -63,13 +63,13 @@ runs:
       run: |
         if [ -n "${{ inputs.docker_slug }}" ]; then
           if [ -n "${{ inputs.docker_tag }}" ]; then
-            echo '::set-output name=VERSION::${{ inputs.docker_tag }}'
+            echo 'VERSION=${{ inputs.docker_tag }} >> $GITHUB_OUTPUT'
           else
-            echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+            echo 'VERSION=${GITHUB_REF/refs\/tags\//} >> $GITHUB_OUTPUT'
           fi
         fi
         if [[ -n "${{ inputs.cluster }}" && -n "${{ inputs.skaffold_profile }}" && -n "${{ inputs.helm_app_version }}" ]]; then
-          echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+          echo 'VERSION=${GITHUB_REF/refs\/tags\//} >> $GITHUB_OUTPUT'
         fi
 
     - name: Authenticate with Google Cloud
