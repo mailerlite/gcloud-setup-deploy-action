@@ -28,7 +28,7 @@ inputs:
     required: false
     default: ""
   docker_slug:
-    description: "The docker repo slug e.g: europe-docker.pkg.dev/remotecompany/autossl-caddy/autossl-caddy"
+    description: "The docker repo slug e.g: europe-docker.pkg.dev/mailergroup/autossl-caddy/autossl-caddy"
     required: false
     default: ""
   docker_file:
