@@ -53,8 +53,8 @@ Just building a docker image? The version will be grabbed from the last tag (mak
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
-    zone: "europe-west1"
-    docker_slug: "europe-docker.pkg.dev/mailergroup/autossl-caddy/autossl-caddy"
+    zone: "ZONE"
+    docker_slug: "DOCKER_SLUG"
     docker_file: "Dockerfile"
 ```
 
@@ -64,8 +64,8 @@ Override git tag
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
-    zone: "europe-west1"
-    docker_slug: "europe-docker.pkg.dev/mailergroup/autossl-caddy/autossl-caddy"
+    zone: "ZONE"
+    docker_slug: "DOCKER_SLUG"
     docker_file: "Dockerfile"
     docker_tag: "v1.0.2"
 ```
@@ -76,8 +76,8 @@ Add docker extra args for GitHub token etc
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
-    zone: "europe-west1"
-    docker_slug: "europe-docker.pkg.dev/mailergroup/autossl-caddy/autossl-caddy"
+    zone: "ZONE"
+    docker_slug: "DOCKER_SLUG"
     docker_file: "Dockerfile"
     docker_build_extra: "--build-arg GITHUB_TOKEN=${{ secrets.GITHUBTOKEN }}"
 ```
