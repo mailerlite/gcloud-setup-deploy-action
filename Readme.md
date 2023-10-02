@@ -88,8 +88,8 @@ Use Helm Repo
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
-    zone: "europe-west1"
-    cluster: "mailerlite-v2"
+    zone: "ZONE"
+    cluster: "CLUSTER_NAME"
     skaffold_profile: "staging"
     helm_app_version: "true"
     helm_pat: ${{ secrets.HELM_PAT }}
@@ -101,8 +101,8 @@ Use different artifact registry
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
-    zone: "europe-west1"
-    cluster: "mailerlite-v2"
+    zone: "ZONE"
+    cluster: "CLUSTER_NAME"
     skaffold_profile: "staging"
     artifact_registry: "us-east1-docker.pkg.dev"
 ```
@@ -125,8 +125,8 @@ Add docker extra args for multi Arch build extra steps needed
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
-    zone: "europe-west1"
-    docker_slug: "europe-docker.pkg.dev/mailergroup/octopus/octopus"
+    zone: "ZONE"
+    docker_slug: "DOCKER_SLUG"
     docker_file: "Dockerfile"
     artifact_registry: "europe-docker.pkg.dev"
     docker_build_extra: "--platform linux/amd64,linux/arm64"
