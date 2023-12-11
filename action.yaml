@@ -119,6 +119,7 @@ runs:
       run: |
         if [ -n "${{ inputs.pre_run_command }}" ]; then
           ${{ inputs.pre_run_command }}
+          echo "done"
         fi
 
     - name: Skaffold build and deploy ${{ inputs.skaffold_profile }}
