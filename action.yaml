@@ -19,6 +19,10 @@ inputs:
     description: "A command to run before the skaffold command"
     required: false
     default: ""
+  post_run_command:
+    description: "A command to run after the skaffold command"
+    required: false
+    default: ""
   skaffold_command:
     description: "The Skaffold command to use default to run"
     required: false
@@ -136,4 +140,12 @@ runs:
         if [ -n "${{ inputs.docker_slug }}" ]; then
           docker build ${{ inputs.docker_build_extra }} -f ${{ inputs.docker_file }} -t ${{ inputs.docker_slug }}:${{ steps.get_version.outputs.VERSION }} -t ${{ inputs.docker_slug }}:latest .
           echo "${{ inputs.docker_slug }}:${{ steps.get_version.outputs.VERSION }}" "${{ inputs.docker_slug }}:latest" | xargs -n 1 docker push
+        fi
+
+    - name: Run post run command
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.post_run_command }}" ]; then
+          ${{ inputs.post_run_command }}
+          echo "done"
         fi
