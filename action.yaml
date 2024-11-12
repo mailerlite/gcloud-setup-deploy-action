@@ -131,6 +131,7 @@ runs:
       run: |
         if [[ -n "${{ inputs.cluster }}" && -n "${{ inputs.skaffold_profile }}" ]]; then
           helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add bjw-s https://bjw-s.github.io/helm-charts/
           skaffold ${{ inputs.skaffold_command }} -p ${{ inputs.skaffold_profile }} ${{ inputs.skaffold_extra }}
         fi
 
