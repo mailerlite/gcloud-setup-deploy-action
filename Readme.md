@@ -38,7 +38,7 @@ Based on what you wish to do in this action.
 Running skaffold to deploy in the project?
 
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailergroup/gcloud-setup-deploy-action@v1.9.1
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
@@ -49,7 +49,7 @@ Running skaffold to deploy in the project?
 
 Just building a docker image? The version will be grabbed from the last tag (make sure this is something like v1.0.1 etc)
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailergroup/gcloud-setup-deploy-action@v1.9.1
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
@@ -60,7 +60,7 @@ Just building a docker image? The version will be grabbed from the last tag (mak
 
 Override git tag
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailergroup/gcloud-setup-deploy-action@v1.9.1
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
@@ -72,7 +72,7 @@ Override git tag
 
 Add docker extra args for GitHub token etc
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailergroup/gcloud-setup-deploy-action@v1.9.1
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
@@ -84,7 +84,7 @@ Add docker extra args for GitHub token etc
 
 Use Helm Repo
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailergroup/gcloud-setup-deploy-action@v1.9.1
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
@@ -97,7 +97,7 @@ Use Helm Repo
 
 Use different artifact registry
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailergroup/gcloud-setup-deploy-action@v1.9.1
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
@@ -121,7 +121,7 @@ Add docker extra args for multi Arch build extra steps needed
     install: true
 
 - name: Build and Push
-  uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+  uses: mailergroup/gcloud-setup-deploy-action@v1.9.1
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
     project: "mailergroup"
