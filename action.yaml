@@ -139,8 +139,24 @@ runs:
       shell: bash
       run: |
         if [ -n "${{ inputs.docker_slug }}" ]; then
-          docker build ${{ inputs.docker_build_extra }} -f ${{ inputs.docker_file }} -t ${{ inputs.docker_slug }}:${{ steps.get_version.outputs.VERSION }} -t ${{ inputs.docker_slug }}:latest .
-          echo "${{ inputs.docker_slug }}:${{ steps.get_version.outputs.VERSION }}" "${{ inputs.docker_slug }}:latest" | xargs -n 1 docker push
+          IFS=', ' read -r -a TAG_ARRAY <<< "${{ steps.get_version.outputs.VERSION }}"
+
+          # Start building the docker commands
+          docker_build_cmd="docker build ${{ inputs.docker_build_extra }} -f ${{ inputs.docker_file }}"
+
+          # Append -t ${{ inputs.docker_slug }}:tag for each tag
+          for tag in "${TAG_ARRAY[@]}"; do
+              docker_build_cmd+=" -t ${{ inputs.docker_slug }}:$tag"
+          done
+
+          # Add the 'latest' tag and build context (.)
+          docker_build_cmd+=" -t ${{ inputs.docker_slug }}:latest ."
+
+          # Print and execute the command
+          echo "$docker_build_cmd"
+          eval "$docker_build_cmd"
+
+          docker push ${{ inputs.docker_slug }} --all-tags
         fi
 
     - name: Run post run command
