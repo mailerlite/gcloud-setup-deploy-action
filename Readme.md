@@ -58,7 +58,7 @@ Just building a docker image? The version will be grabbed from the last tag (mak
     docker_file: "Dockerfile"
 ```
 
-Override git tag
+Override git tag (can list with commas)
 ``` yaml
 - uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
   with:
@@ -67,7 +67,7 @@ Override git tag
     zone: "ZONE"
     docker_slug: "DOCKER_SLUG"
     docker_file: "Dockerfile"
-    docker_tag: "v1.0.2"
+    docker_tag: "v1.0.2,v1"
 ```
 
 Add docker extra args for GitHub token etc
