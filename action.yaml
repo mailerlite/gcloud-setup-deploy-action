@@ -23,7 +23,7 @@ inputs:
     description: "A command to run after the skaffold command"
     required: false
     default: ""
-  pre_create_namespace:
+  namespace:
     description: "Namespace to create before deployment (will be created if it doesn't exist)"
     required: false
     default: ""
@@ -125,12 +125,12 @@ runs:
     - name: Create namespace if specified
       shell: bash
       run: |
-        if [ -n "${{ inputs.pre_create_namespace }}" ]; then
-          if ! kubectl get namespace ${{ inputs.pre_create_namespace }} >/dev/null 2>&1; then
-            kubectl create namespace ${{ inputs.pre_create_namespace }}
-            echo "Created namespace ${{ inputs.pre_create_namespace }}"
+        if [ -n "${{ inputs.namespace }}" ]; then
+          if ! kubectl get namespace ${{ inputs.namespace }} >/dev/null 2>&1; then
+            kubectl create namespace ${{ inputs.namespace }}
+            echo "Created namespace ${{ inputs.namespace }}"
           else
-            echo "Namespace ${{ inputs.pre_create_namespace }} already exists"
+            echo "Namespace ${{ inputs.namespace }} already exists"
           fi
         fi
 
