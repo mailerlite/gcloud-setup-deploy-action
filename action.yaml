@@ -23,6 +23,10 @@ inputs:
     description: "A command to run after the skaffold command"
     required: false
     default: ""
+  pre_create_namespace:
+    description: "Namespace to create before deployment (will be created if it doesn't exist)"
+    required: false
+    default: ""
   skaffold_command:
     description: "The Skaffold command to use default to run"
     required: false
@@ -116,6 +120,18 @@ runs:
       run: |
         if [[ -n "${{ inputs.cluster }}" && -n "${{ inputs.skaffold_profile }}" && -n "${{ inputs.helm_app_version }}" ]]; then
           sed -i "s/^appVersion:.*$/appVersion: ${{ steps.get_version.outputs.VERSION }}/" helm/Chart.yaml
+        fi
+
+    - name: Create namespace if specified
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.pre_create_namespace }}" ]; then
+          if ! kubectl get namespace ${{ inputs.pre_create_namespace }} >/dev/null 2>&1; then
+            kubectl create namespace ${{ inputs.pre_create_namespace }}
+            echo "Created namespace ${{ inputs.pre_create_namespace }}"
+          else
+            echo "Namespace ${{ inputs.pre_create_namespace }} already exists"
+          fi
         fi
 
     - name: Run pre run command
