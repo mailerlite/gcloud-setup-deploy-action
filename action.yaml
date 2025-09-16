@@ -96,10 +96,12 @@ runs:
         gcloud --quiet config set project ${{ inputs.project }}
         gcloud --quiet config set compute/zone ${{ inputs.zone }}
 
-    - name: Docker Login
+    - name: Docker/Helm Login
       shell: bash
       run: |
         gcloud auth configure-docker ${{ inputs.artifact_registry }} --quiet
+        gcloud auth application-default print-access-token | helm registry login -u oauth2accesstoken \
+          --password-stdin https://europe-docker.pkg.dev
 
     - name: Get Cluster Credentials
       shell: bash
