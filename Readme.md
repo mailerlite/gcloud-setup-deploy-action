@@ -20,7 +20,7 @@ Based on what you wish to do in this action.
 
 **skaffold_profile** - The skaffold Profile that is run, when the above is in use, is required when above is on.
 
-**docker_slug** - Only required when building a docker image e.g: europe-docker.pkg.dev/mailergroup/autossl-caddy/autossl-caddy
+**docker_slug** - Only required when building a docker image e.g: europe-docker.pkg.dev/mailerlite/autossl-caddy/autossl-caddy
 
 **docker_file** - Only required when building a docker image e.g: docker/mailerlite/Dockerfile "defaults too Dockerfile"
 
@@ -38,10 +38,10 @@ Based on what you wish to do in this action.
 Running skaffold to deploy in the project?
 
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailerlite/gcloud-setup-deploy-action@v1.2.0
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
-    project: "mailergroup"
+    project: "mailerlite"
     zone: "europe-west1"
     cluster: "mailerlite-v2"
     skaffold_profile: "staging"
@@ -49,10 +49,10 @@ Running skaffold to deploy in the project?
 
 Just building a docker image? The version will be grabbed from the last tag (make sure this is something like v1.0.1 etc)
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailerlite/gcloud-setup-deploy-action@v1.2.0
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
-    project: "mailergroup"
+    project: "mailerlite"
     zone: "ZONE"
     docker_slug: "DOCKER_SLUG"
     docker_file: "Dockerfile"
@@ -60,10 +60,10 @@ Just building a docker image? The version will be grabbed from the last tag (mak
 
 Override git tag (can list with commas)
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailerlite/gcloud-setup-deploy-action@v1.2.0
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
-    project: "mailergroup"
+    project: "mailerlite"
     zone: "ZONE"
     docker_slug: "DOCKER_SLUG"
     docker_file: "Dockerfile"
@@ -72,10 +72,10 @@ Override git tag (can list with commas)
 
 Add docker extra args for GitHub token etc
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailerlite/gcloud-setup-deploy-action@v1.2.0
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
-    project: "mailergroup"
+    project: "mailerlite"
     zone: "ZONE"
     docker_slug: "DOCKER_SLUG"
     docker_file: "Dockerfile"
@@ -84,10 +84,10 @@ Add docker extra args for GitHub token etc
 
 Use Helm Repo
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailerlite/gcloud-setup-deploy-action@v1.2.0
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
-    project: "mailergroup"
+    project: "mailerlite"
     zone: "ZONE"
     cluster: "CLUSTER_NAME"
     skaffold_profile: "staging"
@@ -97,10 +97,10 @@ Use Helm Repo
 
 Use different artifact registry
 ``` yaml
-- uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+- uses: mailerlite/gcloud-setup-deploy-action@v1.2.0
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
-    project: "mailergroup"
+    project: "mailerlite"
     zone: "ZONE"
     cluster: "CLUSTER_NAME"
     skaffold_profile: "staging"
@@ -121,10 +121,10 @@ Add docker extra args for multi Arch build extra steps needed
     install: true
 
 - name: Build and Push
-  uses: mailergroup/gcloud-setup-deploy-action@v1.2.0
+  uses: mailerlite/gcloud-setup-deploy-action@v1.2.0
   with:
     service_account_key: ${{ secrets.GOOGLE_SERVICE_KEY }}
-    project: "mailergroup"
+    project: "mailerlite"
     zone: "ZONE"
     docker_slug: "DOCKER_SLUG"
     docker_file: "Dockerfile"
