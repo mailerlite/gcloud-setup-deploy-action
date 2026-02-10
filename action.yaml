@@ -62,6 +62,14 @@ inputs:
     description: "Set this to update the Helm chart appVersion to the current tag"
     required: false
     default: ""
+  gcs_asset_bucket:
+    description: "GCS bucket path to upload Vite build assets to (e.g. gs://my-bucket/build). When set, skaffold 'run' is split into build + upload + deploy to ensure assets are in GCS before pods roll."
+    required: false
+    default: ""
+  gcs_asset_path:
+    description: "Path inside the Docker image to extract assets from"
+    required: false
+    default: "/mlr/app/public/build/"
 runs:
   using: "composite"
   steps:
@@ -133,12 +141,35 @@ runs:
           echo "done"
         fi
 
-    - name: Skaffold build and deploy ${{ inputs.skaffold_profile }}
+    - name: Skaffold build ${{ inputs.skaffold_profile }}
       shell: bash
       run: |
         if [[ -n "${{ inputs.cluster }}" && -n "${{ inputs.skaffold_profile }}" ]]; then
           helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
-          skaffold ${{ inputs.skaffold_command }} -p ${{ inputs.skaffold_profile }} ${{ inputs.skaffold_extra }}
+          if [[ -n "${{ inputs.gcs_asset_bucket }}" && "${{ inputs.skaffold_command }}" == "run" ]]; then
+            skaffold build -p ${{ inputs.skaffold_profile }} --file-output=/tmp/skaffold-tags.json ${{ inputs.skaffold_extra }}
+          else
+            skaffold ${{ inputs.skaffold_command }} -p ${{ inputs.skaffold_profile }} ${{ inputs.skaffold_extra }}
+          fi
+        fi
+
+    - name: Upload build assets to GCS
+      if: ${{ inputs.gcs_asset_bucket != '' && inputs.skaffold_command == 'run' }}
+      shell: bash
+      run: |
+        IMAGE_TAG=$(python3 -c "import sys,json; print(json.load(sys.stdin)['builds'][0]['tag'])" < /tmp/skaffold-tags.json)
+        CONTAINER_ID=$(docker create "$IMAGE_TAG")
+        docker cp "$CONTAINER_ID:${{ inputs.gcs_asset_path }}" /tmp/build-assets/
+        docker rm "$CONTAINER_ID"
+        gsutil -m rsync -r /tmp/build-assets/build/ "${{ inputs.gcs_asset_bucket }}/"
+        rm -rf /tmp/build-assets
+
+    - name: Skaffold deploy ${{ inputs.skaffold_profile }}
+      if: ${{ inputs.gcs_asset_bucket != '' && inputs.skaffold_command == 'run' }}
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.cluster }}" && -n "${{ inputs.skaffold_profile }}" ]]; then
+          skaffold deploy -p ${{ inputs.skaffold_profile }} --build-artifacts=/tmp/skaffold-tags.json
         fi
 
     - name: Build and Push Docker Image if there is a docker slug
