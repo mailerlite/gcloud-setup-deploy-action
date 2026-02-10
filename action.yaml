@@ -157,7 +157,7 @@ runs:
       if: ${{ inputs.gcs_asset_bucket != '' && inputs.skaffold_command == 'run' }}
       shell: bash
       run: |
-        IMAGE_TAG=$(python3 -c "import sys,json; print(json.load(sys.stdin)['builds'][0]['tag'])" < /tmp/skaffold-tags.json)
+        IMAGE_TAG=$(jq -r '.builds[0].tag' /tmp/skaffold-tags.json)
         CONTAINER_ID=$(docker create "$IMAGE_TAG")
         docker cp "$CONTAINER_ID:${{ inputs.gcs_asset_path }}" /tmp/build-assets/
         docker rm "$CONTAINER_ID"
