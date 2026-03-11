@@ -74,6 +74,10 @@ inputs:
     description: "Destination subfolder path inside the GCS bucket (e.g. build/assets/)"
     required: false
     default: "build/assets/"
+  skaffold_tags_file:
+    description: "Path to the skaffold tags JSON file used between build, GCS upload, and deploy steps"
+    required: false
+    default: "tags.json"
 runs:
   using: "composite"
   steps:
@@ -149,25 +153,25 @@ runs:
       shell: bash
       if: ${{ inputs.skaffold_command != 'deploy' && inputs.skaffold_profile != '' }}
       run: |
-        helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
-        skaffold build -p ${{ inputs.skaffold_profile }} --file-output=/tmp/skaffold-tags.json ${{ inputs.skaffold_extra }}
+        skaffold build -p ${{ inputs.skaffold_profile }} --file-output=${{ inputs.skaffold_tags_file }} ${{ inputs.skaffold_extra }}
 
     - name: Upload built assets to GCS
-      if: ${{ inputs.gcs_asset_bucket != '' && inputs.skaffold_command != 'deploy' }}
+      if: ${{ inputs.gcs_asset_bucket != '' && inputs.skaffold_command != 'deploy' && inputs.skaffold_profile != '' }}
       shell: bash
       run: |
-        IMAGE_TAG=$(jq -r '.builds[0].tag' /tmp/skaffold-tags.json)
+        IMAGE_TAG=$(jq -r '.builds[0].tag' ${{ inputs.skaffold_tags_file }})
         CONTAINER_ID=$(docker create "$IMAGE_TAG")
         docker cp "$CONTAINER_ID:${{ inputs.gcs_asset_path }}" /tmp/build-assets/
         docker rm "$CONTAINER_ID"
-        gsutil -m rsync -r /tmp/build-assets/ "${{ inputs.gcs_asset_bucket }}/${{ inputs.gcs_asset_dest_path }}"
+        gcloud storage rsync -r /tmp/build-assets/ "gs://${{ inputs.gcs_asset_bucket }}/${{ inputs.gcs_asset_dest_path }}"
         rm -rf /tmp/build-assets
 
     - name: Skaffold deploy ${{ inputs.skaffold_profile }}
-      if: ${{ inputs.skaffold_command != 'build' && inputs.skaffold_profile != '' }}
+      if: ${{ inputs.skaffold_command != 'build' && inputs.skaffold_profile != '' && inputs.cluster != '' }}
       shell: bash
       run: |
-        skaffold deploy -p ${{ inputs.skaffold_profile }} --build-artifacts=/tmp/skaffold-tags.json
+        helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
+        skaffold deploy -p ${{ inputs.skaffold_profile }} --build-artifacts=${{ inputs.skaffold_tags_file }} ${{ inputs.skaffold_extra }}
 
     - name: Build and Push Docker Image if there is a docker slug
       shell: bash
