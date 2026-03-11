@@ -69,7 +69,11 @@ inputs:
   gcs_asset_path:
     description: "Path inside the Docker image to extract assets from"
     required: false
-    default: "/mlr/app/public/build/"
+    default: "/mlr/app/public/build/assets/"
+  gcs_asset_dest_path:
+    description: "Destination subfolder path inside the GCS bucket (e.g. build/assets/)"
+    required: false
+    default: "build/assets/"
 runs:
   using: "composite"
   steps:
@@ -156,7 +160,7 @@ runs:
         CONTAINER_ID=$(docker create "$IMAGE_TAG")
         docker cp "$CONTAINER_ID:${{ inputs.gcs_asset_path }}" /tmp/build-assets/
         docker rm "$CONTAINER_ID"
-        gsutil -m rsync -r /tmp/build-assets/build/ "${{ inputs.gcs_asset_bucket }}/"
+        gsutil -m rsync -r /tmp/build-assets/ "${{ inputs.gcs_asset_bucket }}/${{ inputs.gcs_asset_dest_path }}"
         rm -rf /tmp/build-assets
 
     - name: Skaffold deploy ${{ inputs.skaffold_profile }}
