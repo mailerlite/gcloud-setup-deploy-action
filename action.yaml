@@ -143,18 +143,13 @@ runs:
 
     - name: Skaffold build ${{ inputs.skaffold_profile }}
       shell: bash
+      if: ${{ inputs.skaffold_command != 'deploy' && inputs.skaffold_profile != '' }}
       run: |
-        if [[ -n "${{ inputs.cluster }}" && -n "${{ inputs.skaffold_profile }}" ]]; then
-          helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
-          if [[ -n "${{ inputs.gcs_asset_bucket }}" && "${{ inputs.skaffold_command }}" == "run" ]]; then
-            skaffold build -p ${{ inputs.skaffold_profile }} --file-output=/tmp/skaffold-tags.json ${{ inputs.skaffold_extra }}
-          else
-            skaffold ${{ inputs.skaffold_command }} -p ${{ inputs.skaffold_profile }} ${{ inputs.skaffold_extra }}
-          fi
-        fi
+        helm repo add bjw-s https://bjw-s-labs.github.io/helm-charts/
+        skaffold build -p ${{ inputs.skaffold_profile }} --file-output=/tmp/skaffold-tags.json ${{ inputs.skaffold_extra }}
 
-    - name: Upload build assets to GCS
-      if: ${{ inputs.gcs_asset_bucket != '' && inputs.skaffold_command == 'run' }}
+    - name: Upload built assets to GCS
+      if: ${{ inputs.gcs_asset_bucket != '' && inputs.skaffold_command != 'deploy' }}
       shell: bash
       run: |
         IMAGE_TAG=$(jq -r '.builds[0].tag' /tmp/skaffold-tags.json)
@@ -165,12 +160,10 @@ runs:
         rm -rf /tmp/build-assets
 
     - name: Skaffold deploy ${{ inputs.skaffold_profile }}
-      if: ${{ inputs.gcs_asset_bucket != '' && inputs.skaffold_command == 'run' }}
+      if: ${{ inputs.skaffold_command != 'build' && inputs.skaffold_profile != '' }}
       shell: bash
       run: |
-        if [[ -n "${{ inputs.cluster }}" && -n "${{ inputs.skaffold_profile }}" ]]; then
-          skaffold deploy -p ${{ inputs.skaffold_profile }} --build-artifacts=/tmp/skaffold-tags.json
-        fi
+        skaffold deploy -p ${{ inputs.skaffold_profile }} --build-artifacts=/tmp/skaffold-tags.json
 
     - name: Build and Push Docker Image if there is a docker slug
       shell: bash
