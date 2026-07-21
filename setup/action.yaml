@@ -1,8 +1,9 @@
-name: "Setup MailerLite deploy toolchain"
+name: "Setup MailerLite deploy toolchain (devbox hybrid)"
 description: >
-  Installs Nix and the pinned deploy toolchain (gcloud + gke-gcloud-auth-plugin,
-  skaffold, helm + helm-secrets, kubectl, sops, cue, gh, jq) onto PATH.
-  Replaces the swiss-army-knife CI container. Call this before any job step
+  Installs Nix + devbox and provisions the deploy toolchain onto PATH.
+  Replaces the swiss-army-knife CI container. kubectl/skaffold/cue/gh/sops/jq
+  are version-pinned in devbox.json; gcloud(+gke-gcloud-auth-plugin) and
+  helm(+helm-secrets) come from the ./nix flake. Call this before any step
   that shells out to gcloud/skaffold/helm/kubectl.
 runs:
   using: "composite"
@@ -10,24 +11,27 @@ runs:
     - name: Install Nix
       uses: DeterminateSystems/nix-installer-action@main
 
-    - name: Install deploy toolchain onto PATH
+    - name: Provision deploy toolchain (devbox hybrid)
       shell: bash
       run: |
         set -euo pipefail
-        # The flake lives at the repo root; this sub-action sits in setup/.
-        flake_dir="$(cd "${{ github.action_path }}/.." && pwd)"
-        nix profile install "path:${flake_dir}#ci"
-        # nix-installer already put ~/.nix-profile/bin on PATH, but make it
-        # explicit for subsequent steps/jobs.
-        echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+        # devbox drives Nix underneath; install it into the Nix profile.
+        nix profile install nixpkgs#devbox
 
-    - name: Export toolchain env (previously baked into swiss-army-knife)
-      shell: bash
-      run: |
-        # The container set these via ENV; the bare runner needs them so that
-        # `gcloud auth application-default print-access-token` finds ADC and
-        # kubectl uses the GKE auth plugin. The key file is written later by
-        # the deploy action's authenticate step.
+        # devbox.json + ./nix flake live at the action repo root; this
+        # sub-action sits in setup/.
+        root="$(cd "${{ github.action_path }}/.." && pwd)"
+        cd "$root"
+        devbox install
+
+        # Put the whole devbox profile (pinned CLIs + ./nix flake outputs:
+        # gcloud+gke-gcloud-auth-plugin, helm+helm-secrets) on PATH for
+        # subsequent steps/jobs.
+        echo "$root/.devbox/nix/profile/default/bin" >> "$GITHUB_PATH"
+
+        # Env the swiss-army-knife container used to bake in: ADC for
+        # `gcloud auth application-default …`, and the GKE auth plugin toggle.
+        # The key file is written later by the deploy action's authenticate step.
         {
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/key.json"
           echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True"
