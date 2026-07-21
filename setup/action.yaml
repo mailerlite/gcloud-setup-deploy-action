@@ -16,7 +16,7 @@ runs:
       run: |
         set -euo pipefail
         # devbox drives Nix underneath; install it into the Nix profile.
-        nix profile install nixpkgs#devbox
+        nix profile add nixpkgs#devbox
 
         # devbox.json + ./nix flake live at the action repo root; this
         # sub-action sits in setup/.
