@@ -1,0 +1,22 @@
+name: "Setup MailerLite deploy toolchain"
+description: >
+  Installs Nix and the pinned deploy toolchain (gcloud + gke-gcloud-auth-plugin,
+  skaffold, helm + helm-secrets, kubectl, sops, cue, gh, jq) onto PATH.
+  Replaces the swiss-army-knife CI container. Call this before any job step
+  that shells out to gcloud/skaffold/helm/kubectl.
+runs:
+  using: "composite"
+  steps:
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@main
+
+    - name: Install deploy toolchain onto PATH
+      shell: bash
+      run: |
+        set -euo pipefail
+        # The flake lives at the repo root; this sub-action sits in setup/.
+        flake_dir="$(cd "${{ github.action_path }}/.." && pwd)"
+        nix profile install "path:${flake_dir}#ci"
+        # nix-installer already put ~/.nix-profile/bin on PATH, but make it
+        # explicit for subsequent steps/jobs.
+        echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
