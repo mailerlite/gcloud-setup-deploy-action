@@ -20,3 +20,15 @@ runs:
         # nix-installer already put ~/.nix-profile/bin on PATH, but make it
         # explicit for subsequent steps/jobs.
         echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+
+    - name: Export toolchain env (previously baked into swiss-army-knife)
+      shell: bash
+      run: |
+        # The container set these via ENV; the bare runner needs them so that
+        # `gcloud auth application-default print-access-token` finds ADC and
+        # kubectl uses the GKE auth plugin. The key file is written later by
+        # the deploy action's authenticate step.
+        {
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/key.json"
+          echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True"
+        } >> "$GITHUB_ENV"
