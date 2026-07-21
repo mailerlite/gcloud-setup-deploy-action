@@ -24,10 +24,13 @@ runs:
         # breaks GitHub's "Prepare workflow directory" on snapshot restore.
         src="$(cd "${{ github.action_path }}/.." && pwd)"
         work="${RUNNER_TEMP}/mlr-deploy-toolchain"
-        mkdir -p "$work"
+        # Start clean: on a snapshot-restored VM $work may already exist, and
+        # `cp -R src/nix $work/nix` would then nest into $work/nix/nix.
+        rm -rf "$work"
+        mkdir -p "$work/nix"
         cp "$src/devbox.json" "$work/devbox.json"
         cp "$src/devbox.lock" "$work/devbox.lock" 2>/dev/null || true
-        cp -R "$src/nix" "$work/nix"
+        cp -R "$src/nix/." "$work/nix/"
         cd "$work"
         devbox install
 
