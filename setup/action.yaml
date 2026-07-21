@@ -18,16 +18,23 @@ runs:
         # devbox drives Nix underneath; install it into the Nix profile.
         nix profile add nixpkgs#devbox
 
-        # devbox.json + ./nix flake live at the action repo root; this
-        # sub-action sits in setup/.
-        root="$(cd "${{ github.action_path }}/.." && pwd)"
-        cd "$root"
+        # Copy the config OUT of the action checkout into a scratch dir before
+        # running devbox. Running it in-place would drop a .devbox/ profile
+        # (a symlink into the read-only /nix/store) inside _actions/, which
+        # breaks GitHub's "Prepare workflow directory" on snapshot restore.
+        src="$(cd "${{ github.action_path }}/.." && pwd)"
+        work="${RUNNER_TEMP}/mlr-deploy-toolchain"
+        mkdir -p "$work"
+        cp "$src/devbox.json" "$work/devbox.json"
+        cp "$src/devbox.lock" "$work/devbox.lock" 2>/dev/null || true
+        cp -R "$src/nix" "$work/nix"
+        cd "$work"
         devbox install
 
         # Put the whole devbox profile (pinned CLIs + ./nix flake outputs:
         # gcloud+gke-gcloud-auth-plugin, helm+helm-secrets) on PATH for
         # subsequent steps/jobs.
-        echo "$root/.devbox/nix/profile/default/bin" >> "$GITHUB_PATH"
+        echo "$work/.devbox/nix/profile/default/bin" >> "$GITHUB_PATH"
 
         # Env the swiss-army-knife container used to bake in: ADC for
         # `gcloud auth application-default …`, and the GKE auth plugin toggle.
