@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
 # Setup may have failed before creating authentication state.
 [[ -n "${MLR_TOOLCHAIN_AUTH_DIR:-}" ]] || exit 0
 [[ -e "$MLR_TOOLCHAIN_AUTH_DIR" ]] || exit 0
@@ -11,6 +12,7 @@ auth="$(realpath "$MLR_TOOLCHAIN_AUTH_DIR")"
 }
 [[ "$(cat "$auth/.owner")" == mlr-toolchain ]] || exit 1
 rm -rf -- "$auth"
+
 # The deploy action keeps the existing image contract for this credential file.
 if [[ -f /tmp/key.json && -O /tmp/key.json && ! -L /tmp/key.json ]]; then
   rm -f -- /tmp/key.json

@@ -1,3 +1,4 @@
+---
 name: Clean up MailerLite toolchain credentials
 description: Remove runtime credentials after the last deployment operation; call with always().
 runs:

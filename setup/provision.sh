@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Called with a five-minute timeout by setup/action.yaml.
 set -euo pipefail
+
 src="$(cd "${1:?Expected toolchain source directory}" && pwd)"
 : "${RUNNER_TEMP:?}" "${GITHUB_PATH:?}" "${GITHUB_ENV:?}" "${GITHUB_STEP_SUMMARY:?}"
 fail() { echo "::error::$*" >&2; exit 1; }
@@ -11,9 +12,11 @@ esac
 for file in devbox.json devbox.lock nix/flake.nix nix/flake.lock nix/gcloud-components.json; do
   [[ -f "$src/$file" ]] || fail "Missing required file: $file"
 done
+
 for file in devbox.json devbox.lock nix/flake.lock nix/gcloud-components.json; do
   python3 -m json.tool "$src/$file" >/dev/null 2>&1 || fail "Invalid JSON: $file"
 done
+
 # Each invocation gets an isolated directory. A failed attempt cannot be reused.
 work="$(mktemp -d "$RUNNER_TEMP/mlr-toolchain.XXXXXXXX")"
 phase=bootstrap
@@ -21,12 +24,14 @@ trap 'echo "::error::Toolchain setup failed during $phase; no environment was ex
 mkdir "$work/nix"
 cp "$src/devbox.json" "$src/devbox.lock" "$work/"
 cp "$src/nix/flake.nix" "$src/nix/flake.lock" "$src/nix/gcloud-components.json" "$work/nix/"
+
 export DEVBOX_NO_TELEMETRY=1
 export DEVBOX_NO_PROMPT=1
 # Setup needs public packages only. Keep CI credentials out of Devbox diagnostics.
 unset GH_TOKEN GITHUB_TOKEN
 export GH_CONFIG_DIR="$work/gh"
 mkdir "$GH_CONFIG_DIR"
+
 # A full revision avoids dependence on channels or the Nix registry.
 bootstrap="$(nix build --no-link --print-out-paths \
   github:NixOS/nixpkgs/00455b0a3690d3f5dc61e9aef4277dc86235b73f#devbox)"
@@ -38,6 +43,7 @@ phase=installation
 cd "$work"
 devbox install
 phase=environment
+
 # Capture first so an unsuccessful shellenv cannot be hidden by eval.
 shellenv="$(devbox shellenv)"
 eval "$shellenv"
@@ -45,8 +51,10 @@ phase="lock-verification"
 cmp "$src/devbox.lock" "$work/devbox.lock" || fail 'devbox.lock changed during setup; regenerate and review it before release'
 cmp "$src/nix/flake.lock" "$work/nix/flake.lock" || fail 'nix/flake.lock changed during setup; regenerate and review it before release'
 phase="tool-verification"
+
 # Plugins are packaged by the Helm wrapper, not inherited from a container.
 unset HELM_PLUGINS CLOUDSDK_PYTHON
+
 # Resolve tools from the environment Devbox publishes, never its private profile layout.
 for tool in gcloud gke-gcloud-auth-plugin helm kubectl skaffold cue gh sops jq; do
   executable="$(command -v "$tool")" || fail "Missing tool: $tool"
@@ -57,11 +65,13 @@ for tool in gcloud gke-gcloud-auth-plugin helm kubectl skaffold cue gh sops jq; 
   printf '%s\n' "$(dirname "$executable")" >> "$work/paths"
 done
 bash "$src/setup/version-table.sh" "$src/devbox.json" > "$work/versions"
+
 # Runtime credentials live outside the flake source and Nix store.
 auth="$(mktemp -d "$RUNNER_TEMP/mlr-auth.XXXXXXXX")"
 chmod 700 "$auth"
 mkdir "$auth/gcloud" "$auth/docker"
 printf 'mlr-toolchain\n' > "$auth/.owner"
+
 # Publish only after installation, locks and tools have all passed validation.
 sort -u "$work/paths" >> "$GITHUB_PATH"
 {

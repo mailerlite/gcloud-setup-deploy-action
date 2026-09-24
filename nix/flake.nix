@@ -1,5 +1,5 @@
 {
-  description = "Exact Docker-compatible deploy packages and plugins";
+  description = "Deploy packages and plugins";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
