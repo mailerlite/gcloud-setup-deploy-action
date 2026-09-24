@@ -18,7 +18,7 @@ runs:
         determinate: false
         source-tag: v3.22.5
         nix-package-url: https://releases.nixos.org/nix/nix-2.35.2/nix-2.35.2-${{ runner.arch == 'ARM64' && 'aarch64' || 'x86_64' }}-linux.tar.xz
-        github-token: ''
+        github-token: ${{ github.token }}
         extra-conf: |
           connect-timeout = 15
           download-attempts = 2

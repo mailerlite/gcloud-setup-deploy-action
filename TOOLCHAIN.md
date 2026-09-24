@@ -24,7 +24,12 @@ not supported by setup.
 - `cleanup/` removes the separate runtime authentication directory and `/tmp/key.json`.
   Use it after the job's final tool operation with `if: always()`.
 
-Setup uses public package sources/caches. It does not save snapshots. Provisioning
+Setup uses public package sources/caches. GitHub downloads authenticate with the
+short-lived `${{ github.token }}` configured by the Nix installer; no PAT or extra
+secret is required. Devbox does not discover tokens from the environment or local
+GitHub CLI configuration. The installer-managed Nix configuration contains runtime
+authentication state and must not be included in future snapshots. Setup does not
+save snapshots. Provisioning
 has a five-minute timeout after the Nix installer; the calling job must also have a
 finite timeout to bound installer failures. Failed setup stops the job before auth.
 The job summary shows executable paths, versions and configuration hashes.

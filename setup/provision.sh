@@ -27,7 +27,8 @@ cp "$src/nix/flake.nix" "$src/nix/flake.lock" "$src/nix/gcloud-components.json" 
 
 export DEVBOX_NO_TELEMETRY=1
 export DEVBOX_NO_PROMPT=1
-# Setup needs public packages only. Keep CI credentials out of Devbox diagnostics.
+# Nix authenticates through the installer-configured job token. Prevent Devbox
+# from discovering a separate token through the environment or GitHub CLI.
 unset GH_TOKEN GITHUB_TOKEN
 export GH_CONFIG_DIR="$work/gh"
 mkdir "$GH_CONFIG_DIR"
