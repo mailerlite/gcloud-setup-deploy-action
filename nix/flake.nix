@@ -91,7 +91,28 @@
             installCheckPhase = builtins.replaceStrings [ old.version ] [ "575.0.1" ] old.installCheckPhase;
           });
           components = pkgs.callPackage "${nixpkgs}/pkgs/by-name/go/google-cloud-sdk/components.nix" {
-            snapshotPath = ./gcloud-components.json;
+            # The SDK wrapper already provides Python through Nix. Google adds its
+            # bundled interpreter as a component dependency; exclude that duplicate
+            # runtime while preserving the original, reviewed source manifest.
+            snapshotPath = pkgs.writeText "gcloud-components-nix.json" (
+              builtins.toJSON (
+                let
+                  snapshot = builtins.fromJSON (builtins.readFile ./gcloud-components.json);
+                in
+                snapshot
+                // {
+                  components = map (
+                    component:
+                    component
+                    // {
+                      dependencies = builtins.filter (
+                        name: !(pkgs.lib.hasPrefix "bundled-python" name)
+                      ) component.dependencies;
+                    }
+                  ) snapshot.components;
+                }
+              )
+            );
           };
           withExtraComponents =
             pkgs.callPackage "${nixpkgs}/pkgs/by-name/go/google-cloud-sdk/withExtraComponents.nix"
