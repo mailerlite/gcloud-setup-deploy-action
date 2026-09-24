@@ -1,0 +1,44 @@
+name: Deploy toolchain checks
+on:
+  pull_request:
+  push:
+    branches: ['feature/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  toolchain:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Provision from checkout
+        uses: ./setup
+      - name: Check Nix packages
+        run: nix flake check ./nix --no-update-lock-file
+      - name: Static and failure checks
+        run: nix develop ./nix --command bash tests/check.sh
+      - name: Exercise Helm secrets with a local fixture
+        run: nix develop ./nix --command bash tests/secrets.sh
+      - name: Check runner Docker access
+        run: |
+          docker info > /dev/null
+          docker buildx inspect > /dev/null
+      - name: Remove first setup credentials
+        if: always()
+        uses: ./cleanup
+      - name: Repeat setup in the same job
+        uses: ./setup
+      - name: Verify exported environment and unchanged locks
+        run: |
+          bash setup/version-table.sh devbox.json
+          git diff --exit-code -- devbox.lock nix/flake.lock
+      - name: Remove runtime credentials
+        if: always()
+        uses: ./cleanup

@@ -1,48 +1,29 @@
-name: "Setup MailerLite deploy toolchain (devbox hybrid)"
-description: >
-  Installs Nix + devbox and provisions the deploy toolchain onto PATH.
-  Replaces the swiss-army-knife CI container. kubectl/skaffold/cue/gh/sops/jq
-  are version-pinned in devbox.json; gcloud(+gke-gcloud-auth-plugin) and
-  helm(+helm-secrets) come from the ./nix flake. Call this before any step
-  that shells out to gcloud/skaffold/helm/kubectl.
+name: Setup MailerLite deploy toolchain
+description: Install the locked Devbox/Nix toolchain on Linux x64 or arm64.
 runs:
-  using: "composite"
+  using: composite
   steps:
-    - name: Install Nix
-      uses: DeterminateSystems/nix-installer-action@main
-
-    - name: Provision deploy toolchain (devbox hybrid)
+    - name: Validate runner
       shell: bash
       run: |
-        set -euo pipefail
-        # devbox drives Nix underneath; install it into the Nix profile.
-        nix profile add nixpkgs#devbox
+        case "$RUNNER_OS/$RUNNER_ARCH" in
+          Linux/X64|Linux/ARM64) ;;
+          *) echo '::error::Supported runners: Linux X64 and ARM64'; exit 1 ;;
+        esac
 
-        # Copy the config OUT of the action checkout into a scratch dir before
-        # running devbox. Running it in-place would drop a .devbox/ profile
-        # (a symlink into the read-only /nix/store) inside _actions/, which
-        # breaks GitHub's "Prepare workflow directory" on snapshot restore.
-        src="$(cd "${{ github.action_path }}/.." && pwd)"
-        work="${RUNNER_TEMP}/mlr-deploy-toolchain"
-        # Start clean: on a snapshot-restored VM $work may already exist, and
-        # `cp -R src/nix $work/nix` would then nest into $work/nix/nix.
-        rm -rf "$work"
-        mkdir -p "$work/nix"
-        cp "$src/devbox.json" "$work/devbox.json"
-        cp "$src/devbox.lock" "$work/devbox.lock" 2>/dev/null || true
-        cp -R "$src/nix/." "$work/nix/"
-        cd "$work"
-        devbox install
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      with:
+        determinate: false
+        source-tag: v3.22.5
+        nix-package-url: https://releases.nixos.org/nix/nix-2.35.2/nix-2.35.2-${{ runner.arch == 'ARM64' && 'aarch64' || 'x86_64' }}-linux.tar.xz
+        github-token: ''
+        extra-conf: |
+          connect-timeout = 15
+          download-attempts = 2
 
-        # Put the whole devbox profile (pinned CLIs + ./nix flake outputs:
-        # gcloud+gke-gcloud-auth-plugin, helm+helm-secrets) on PATH for
-        # subsequent steps/jobs.
-        echo "$work/.devbox/nix/profile/default/bin" >> "$GITHUB_PATH"
-
-        # Env the swiss-army-knife container used to bake in: ADC for
-        # `gcloud auth application-default …`, and the GKE auth plugin toggle.
-        # The key file is written later by the deploy action's authenticate step.
-        {
-          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/key.json"
-          echo "USE_GKE_GCLOUD_AUTH_PLUGIN=True"
-        } >> "$GITHUB_ENV"
+    - name: Provision deploy toolchain
+      shell: bash
+      env:
+        TOOLCHAIN_ACTION_PATH: ${{ github.action_path }}
+      run: timeout --kill-after=10s 300s bash "$TOOLCHAIN_ACTION_PATH/provision.sh" "$TOOLCHAIN_ACTION_PATH/.."
