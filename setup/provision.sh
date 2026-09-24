@@ -9,11 +9,11 @@ case "${RUNNER_OS:-}/${RUNNER_ARCH:-}" in
   Linux/X64|Linux/ARM64) ;;
   *) fail 'Supported runners: Linux X64 and ARM64' ;;
 esac
-for file in devbox.json devbox.lock nix/flake.nix nix/flake.lock nix/gcloud-components.json; do
+for file in devbox.json devbox.lock nix/flake.nix nix/flake.lock; do
   [[ -f "$src/$file" ]] || fail "Missing required file: $file"
 done
 
-for file in devbox.json devbox.lock nix/flake.lock nix/gcloud-components.json; do
+for file in devbox.json devbox.lock nix/flake.lock; do
   python3 -m json.tool "$src/$file" >/dev/null 2>&1 || fail "Invalid JSON: $file"
 done
 
@@ -23,7 +23,7 @@ phase=bootstrap
 trap 'echo "::error::Toolchain setup failed during $phase; no environment was exported. See $work" >&2' ERR
 mkdir "$work/nix"
 cp "$src/devbox.json" "$src/devbox.lock" "$work/"
-cp "$src/nix/flake.nix" "$src/nix/flake.lock" "$src/nix/gcloud-components.json" "$work/nix/"
+cp "$src/nix/flake.nix" "$src/nix/flake.lock" "$work/nix/"
 
 export DEVBOX_NO_TELEMETRY=1
 export DEVBOX_NO_PROMPT=1

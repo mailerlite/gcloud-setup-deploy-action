@@ -1,11 +1,11 @@
 # Deploy toolchain
 
-This candidate preserves the Docker baseline's explicitly versioned CLIs:
-gcloud 575.0.1, Helm 3.21.4, helm-secrets 4.7.7, kubectl 1.35.8,
-skaffold 2.24.0, cue 0.17.1, gh 2.97.0 and sops 3.13.3. jq remains pinned
-at 1.7.1. Docker CLI/buildx/daemon, Python 3, Bash and GNU coreutils are runner
-prerequisites. The gcloud wrapper supplies its own Python and helm-secrets supplies
-GnuPG and shell utilities through Nix.
+This candidate pins the Docker baseline's Helm 3.21.4, kubectl 1.35.8,
+skaffold 2.24.0, cue 0.17.1, gh 2.97.0, sops 3.13.3 and jq 1.7.1 exactly, and
+helm-secrets at 4.7.6. gcloud and its GKE auth plugin follow the nixpkgs release
+pinned in `nix/flake.lock` (565.0.0 today) rather than the Docker image's 575.0.1.
+Docker CLI/buildx/daemon, Python 3, Bash and GNU coreutils are runner prerequisites.
+The gcloud wrapper supplies its own Python through Nix.
 
 The target runners are Ubuntu 24.04 x64 and arm64, including the existing Warp
 runners. Linux CI and authenticated pilot validation must pass before these targets
@@ -73,25 +73,23 @@ committing. Local flakes are resolved from `devbox.json`, not that entry, as sho
 in the [pinned Devbox implementation](https://github.com/jetify-com/devbox/blob/0.17.5/internal/devpkg/package.go).
 CI verifies relocation and unchanged locks during actual installation.
 
-The custom Nix packages exist because the exact Docker versions are not all
+The custom Nix definitions exist because the exact Docker versions are not all
 available through Devbox or the maintained package collection:
 
 - Helm and kubectl use official Linux release artifacts with upstream SHA256s for
   both architectures. Update the version, URLs and both checksums together.
-- gcloud reuses nixpkgs' packaging with the exact SDK archives. Recompute both
-  archive hashes with `nix store prefetch-file --json URL`. Fetch the matching
-  `https://dl.google.com/dl/cloudsdk/channels/rapid/components-vVERSION.json` into
-  `nix/gcloud-components.json`; it includes component source hashes. Never use the
-  moving `components-2.json` manifest. Review the changes and run package checks.
-- helm-secrets uses its exact tagged source and `nix store prefetch-file --json
-  --unpack URL` hash. Its wrapper supplies shell dependencies, while SOPS is selected
-  through Devbox so a second SOPS version cannot silently take precedence.
+- helm-secrets reuses the nixpkgs recipe and wrapper, overriding only the source
+  tag. Update the version and the `nix store prefetch-file --json --unpack URL`
+  hash together. The wrapper carries nixpkgs' sops, so a flake bump can move the
+  sops used inside `helm secrets` independently of the Devbox-pinned sops.
+- gcloud and the GKE auth plugin are the stock nixpkgs packages. Bump them with
+  `nix flake update --flake ./nix`, review the gcloud version change in the
+  summary and release notes, and run package checks.
 
 Keep the custom definitions only while the exact versions require them. Prefer
-maintained nixpkgs recipes when matching packages become available. gcloud's
-component composition uses files inside the pinned nixpkgs tree: recheck those
-interfaces when updating `nix/flake.lock`. This extra maintenance is an explicit cost
-of matching Docker exactly.
+maintained nixpkgs recipes when matching packages become available. `nix/flake.nix`
+tracks the `nixos-26.05` stable branch on purpose: lock bumps bring backported
+fixes rather than major version jumps.
 
 ## Validation and release
 

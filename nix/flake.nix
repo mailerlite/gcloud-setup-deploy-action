@@ -1,5 +1,5 @@
 {
-  description = "Deploy packages and plugins";
+  description = "Pinned deploy packages and plugins for the MailerLite toolchain";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
@@ -11,12 +11,12 @@
         "aarch64-linux"
       ];
       forEachSystem = nixpkgs.lib.genAttrs systems;
+      helmSecretsVersion = "4.7.6";
       packagesFor =
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
           arch = if system == "x86_64-linux" then "amd64" else "arm64";
-          gcloudArch = if system == "x86_64-linux" then "x86_64" else "arm";
           helm = pkgs.stdenvNoCC.mkDerivation {
             pname = "kubernetes-helm";
             version = "3.21.4";
@@ -49,75 +49,26 @@
             dontBuild = true;
             installPhase = "install -Dm755 $src $out/bin/kubectl";
           };
-          # Keep SOPS on the Devbox PATH; do not hide a second version in the wrapper.
-          helmSecrets = pkgs.stdenvNoCC.mkDerivation {
-            pname = "helm-secrets";
-            version = "4.7.7";
+
+          helmSecrets = pkgs.kubernetes-helmPlugins.helm-secrets.overrideAttrs (_: {
+            version = helmSecretsVersion;
             src = pkgs.fetchFromGitHub {
               owner = "jkroepke";
               repo = "helm-secrets";
-              rev = "v4.7.7";
-              hash = "sha256-TfVKrSkr5kAwGZ6HR6m6sX3VN9LEPQYvjshYpD+R6XI=";
+              rev = "v${helmSecretsVersion}";
+              hash = "sha256-gCsXnZCvQqc5PIQGheOdzZ1YSUNDhbMvJIROMGA65Jg=";
             };
-            nativeBuildInputs = [ pkgs.makeWrapper ];
-            dontBuild = true;
-            installPhase = ''
-              mkdir -p $out/helm-secrets
-              cp plugin.yaml $out/helm-secrets/
-              cp -r scripts $out/helm-secrets/
-              wrapProgram $out/helm-secrets/scripts/run.sh --prefix PATH : ${
-                pkgs.lib.makeBinPath [
-                  pkgs.coreutils
-                  pkgs.findutils
-                  pkgs.getopt
-                  pkgs.gnugrep
-                  pkgs.gnused
-                  pkgs.gnupg
-                ]
-              }
+            postPatch = ''
+              sed -i 's/^version:.*/version: "${helmSecretsVersion}"/' plugin.yaml
             '';
-          };
-          sdk = pkgs.google-cloud-sdk.overrideAttrs (old: {
-            version = "575.0.1";
-            src = pkgs.fetchurl {
-              url = "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-575.0.1-linux-${gcloudArch}.tar.gz";
-              hash =
-                {
-                  x86_64-linux = "sha256-OBmPp2sapkozL63KfbpF+Wxtu1zZ538XP51qZUQ+N6s=";
-                  aarch64-linux = "sha256-5cOjVNTFd17M7eYmdGVH1tPcP1nbNQ9i8F28YE7sXj8=";
-                }
-                .${system};
-            };
-            installCheckPhase = builtins.replaceStrings [ old.version ] [ "575.0.1" ] old.installCheckPhase;
           });
-          componentManifest = builtins.fromJSON (builtins.readFile ./gcloud-components.json);
-          # The SDK wrapper already provides Python through Nix. Google adds its
-          # bundled interpreter as a component dependency; exclude that duplicate
-          # runtime while preserving the original, reviewed source manifest.
-          withoutBundledPython =
-            component:
-            component
-            // {
-              dependencies = builtins.filter (
-                name: !(pkgs.lib.hasPrefix "bundled-python" name)
-              ) component.dependencies;
-            };
-          nixComponentManifest = componentManifest // {
-            components = map withoutBundledPython componentManifest.components;
-          };
-          components = pkgs.callPackage "${nixpkgs}/pkgs/by-name/go/google-cloud-sdk/components.nix" {
-            snapshotPath = pkgs.writeText "gcloud-components-nix.json" (builtins.toJSON nixComponentManifest);
-          };
-          withExtraComponents =
-            pkgs.callPackage "${nixpkgs}/pkgs/by-name/go/google-cloud-sdk/withExtraComponents.nix"
-              {
-                google-cloud-sdk = sdk;
-                inherit components;
-              };
+          # gcloud and its GKE auth plugin follow the nixpkgs release pinned in
+          # flake.lock; bump them by updating the lock.
+          sdk = pkgs.google-cloud-sdk;
         in
         {
           inherit kubectl;
-          gcloud = withExtraComponents [ components.gke-gcloud-auth-plugin ];
+          gcloud = sdk.withExtraComponents [ sdk.components.gke-gcloud-auth-plugin ];
           helm = pkgs.wrapHelm helm { plugins = [ helmSecrets ]; };
         };
     in
@@ -169,9 +120,9 @@
                 export HOME="$TMPDIR/home"
                 mkdir -p "$HOME"
                 helm version --short | grep -F 'v3.21.4'
-                helm plugin list | grep -E 'secrets[[:space:]]+4.7.7'
+                helm plugin list | grep -E 'secrets[[:space:]]+${helmSecretsVersion}'
                 kubectl version --client -o json | grep -F 'v1.35.8'
-                gcloud --version | grep -F 'Google Cloud SDK 575.0.1'
+                gcloud --version | grep -F 'Google Cloud SDK ${pkgs.google-cloud-sdk.version}'
                 gke-gcloud-auth-plugin --version
                 touch "$out"
               '';

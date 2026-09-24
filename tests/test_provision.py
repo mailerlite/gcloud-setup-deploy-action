@@ -14,7 +14,7 @@ class ProvisionTests(unittest.TestCase):
             root = Path(directory)
             source = root / 'source'
             (source / 'nix').mkdir(parents=True)
-            for name in ('devbox.json', 'devbox.lock', 'nix/flake.lock', 'nix/gcloud-components.json'):
+            for name in ('devbox.json', 'devbox.lock', 'nix/flake.lock'):
                 if name != missing:
                     (source / name).write_text('not json' if name == corrupt else '{}')
             if missing != 'nix/flake.nix':
@@ -34,12 +34,12 @@ class ProvisionTests(unittest.TestCase):
             return result.stderr
 
     def test_missing_required_files(self):
-        for name in ('devbox.json', 'devbox.lock', 'nix/flake.nix', 'nix/flake.lock', 'nix/gcloud-components.json'):
+        for name in ('devbox.json', 'devbox.lock', 'nix/flake.nix', 'nix/flake.lock'):
             with self.subTest(name=name):
                 self.assertIn('Missing required file: ' + name, self.run_setup(missing=name))
 
     def test_corrupt_json(self):
-        for name in ('devbox.json', 'devbox.lock', 'nix/flake.lock', 'nix/gcloud-components.json'):
+        for name in ('devbox.json', 'devbox.lock', 'nix/flake.lock'):
             with self.subTest(name=name):
                 self.assertIn('Invalid JSON: ' + name, self.run_setup(corrupt=name))
 
