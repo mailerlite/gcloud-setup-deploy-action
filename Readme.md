@@ -1,3 +1,8 @@
+# Nix/Devbox toolchain
+
+See [TOOLCHAIN.md](TOOLCHAIN.md) for setup, supported runner validation, maintenance,
+credential cleanup and release requirements.
+
 # Breaking Changes
 
 Please be aware that we introduced a breaking change here in that you must use https://cloud.google.com/sdk/docs/release-notes

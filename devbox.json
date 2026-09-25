@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.17.5/.schema/devbox.schema.json",
+  "packages": [
+    "skaffold@2.24.0",
+    "cue@0.17.1",
+    "gh@2.97.0",
+    "sops@3.13.3",
+    "jq@1.7.1",
+    "path:./nix"
+  ]
+}

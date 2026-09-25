@@ -1,0 +1,37 @@
+---
+name: Setup MailerLite deploy toolchain
+description: Install the locked Devbox/Nix toolchain on Linux x64 or arm64.
+runs:
+  using: composite
+  steps:
+    - name: Validate runner
+      shell: bash
+      run: |
+        case "$RUNNER_OS/$RUNNER_ARCH" in
+          Linux/X64|Linux/ARM64) ;;
+          *) echo '::error::Supported runners: Linux X64 and ARM64'; exit 1 ;;
+        esac
+
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      with:
+        determinate: false
+        source-tag: v3.22.5
+        nix-package-url: https://releases.nixos.org/nix/nix-2.35.2/nix-2.35.2-${{ runner.arch == 'ARM64' && 'aarch64' || 'x86_64' }}-linux.tar.xz
+        github-token: ${{ github.token }}
+        extra-conf: |
+          connect-timeout = 15
+          download-attempts = 2
+
+    - name: Enable Magic Nix Cache
+      uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
+      with:
+        use-gha-cache: enabled
+        use-flakehub: disabled
+        diagnostic-endpoint: ''
+
+    - name: Provision deploy toolchain
+      shell: bash
+      env:
+        TOOLCHAIN_ACTION_PATH: ${{ github.action_path }}
+      run: timeout --kill-after=10s 300s bash "$TOOLCHAIN_ACTION_PATH/provision.sh" "$TOOLCHAIN_ACTION_PATH/.."
