@@ -24,7 +24,8 @@ not supported by setup.
 - `cleanup/` removes the separate runtime authentication directory and `/tmp/key.json`.
   Use it after the job's final tool operation with `if: always()`.
 
-Setup uses public package sources/caches. GitHub downloads authenticate with the
+Setup uses public package sources plus Magic Nix Cache backed by GitHub Actions.
+GitHub downloads authenticate with the
 short-lived `${{ github.token }}` configured by the Nix installer; no PAT or extra
 secret is required. Devbox does not discover tokens from the environment or local
 GitHub CLI configuration. The installer-managed Nix configuration contains runtime
@@ -59,6 +60,33 @@ and `USE_GKE_GCLOUD_AUTH_PLUGIN=True`. Do not cache the auth directory or run tw
 credentialed deployments concurrently inside one job. Repeat setup only before
 authentication or after cleanup; it deliberately provisions again rather than
 trusting an existing PATH.
+
+## Cache pilot
+
+Setup starts [Magic Nix Cache](https://github.com/DeterminateSystems/magic-nix-cache-action)
+after installing Nix and before provisioning Devbox. The action is pinned to v15's
+commit; its cache daemon uses the upstream default distribution. GitHub Actions
+caching is explicitly enabled, FlakeHub is disabled, and diagnostics are disabled.
+No additional secret or `id-token: write` permission is required for this mode.
+
+The cache stores Nix store paths, not the workspace, Nix configuration or runtime
+authentication directories. Paths available from the upstream `cache.nixos.org`
+are not duplicated in the GitHub cache. Cache access follows GitHub repository and
+branch/PR scope: warming the action repository does not warm `mailerlite`, and this
+is not a shared multi-repository cache. Both architectures have distinct Nix outputs.
+
+Run the same commit twice on the same PR or branch, letting the first run finish
+including its post-job cache upload. Compare provisioning and total job durations
+for each architecture, and inspect Magic Nix Cache's logs for uploads and hits.
+The repeat-setup step within one job is not a cross-run cache test. Record cache
+warnings too: the upstream action can fall back without failing the job, so green
+CI alone does not prove caching worked. Cache storage shares the repository's
+GitHub Actions cache quota with other caches.
+
+For the application pilot, update all action pins in the workflows branch, then
+both workflow pins in the application PR. Compare with the previous uncached run;
+restore those previous pins to disable the experiment. Leave Attic for a separate
+multi-repository evaluation.
 
 ## Update and extend
 
