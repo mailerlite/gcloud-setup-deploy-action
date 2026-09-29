@@ -1,6 +1,6 @@
 ---
 name: Setup MailerLite deploy toolchain
-description: Install the locked Devbox/Nix toolchain on Linux x64 or arm64.
+description: Install the locked Nix toolchain on Linux x64 or arm64.
 runs:
   using: composite
   steps:

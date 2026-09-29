@@ -1,4 +1,4 @@
-# Nix/Devbox toolchain
+# Nix toolchain
 
 See [TOOLCHAIN.md](TOOLCHAIN.md) for setup, supported runner validation, maintenance,
 credential cleanup and release requirements.

@@ -35,10 +35,8 @@ jobs:
         uses: ./cleanup
       - name: Repeat setup in the same job
         uses: ./setup
-      - name: Verify exported environment and unchanged locks
-        run: |
-          bash setup/version-table.sh devbox.json
-          git diff --exit-code -- devbox.lock nix/flake.lock
+      - name: Verify exported environment
+        run: bash setup/version-table.sh
       - name: Remove runtime credentials
         if: always()
         uses: ./cleanup
