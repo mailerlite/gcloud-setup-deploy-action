@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# The Attic netrc is written before Nix installs, so remove it even after a failed setup.
+netrc="${RUNNER_TEMP:-}/mlr-nix-netrc"
+if [[ -n "${RUNNER_TEMP:-}" && -f "$netrc" && -O "$netrc" && ! -L "$netrc" ]]; then
+  rm -f -- "$netrc"
+fi
+
 # Setup may have failed before creating authentication state.
 [[ -n "${MLR_TOOLCHAIN_AUTH_DIR:-}" ]] || exit 0
 [[ -e "$MLR_TOOLCHAIN_AUTH_DIR" ]] || exit 0

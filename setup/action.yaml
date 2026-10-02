@@ -1,6 +1,10 @@
 ---
 name: Setup MailerLite deploy toolchain
-description: Install the locked Nix toolchain on Linux x64 or arm64.
+description: Install the locked Nix toolchain on Linux x64 or arm64 from the Attic cache.
+inputs:
+  attic-token:
+    description: Attic pull token for the deploy-toolchain cache, normally secrets.ATTIC_PULL_TOKEN.
+    required: true
 runs:
   using: composite
   steps:
@@ -12,6 +16,13 @@ runs:
           *) echo '::error::Supported runners: Linux X64 and ARM64'; exit 1 ;;
         esac
 
+    - name: Configure Attic access
+      shell: bash
+      env:
+        ATTIC_TOKEN: ${{ inputs.attic-token }}
+        TOOLCHAIN_ACTION_PATH: ${{ github.action_path }}
+      run: bash "$TOOLCHAIN_ACTION_PATH/cache-auth.sh"
+
     - name: Install Nix
       uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       with:
@@ -22,13 +33,9 @@ runs:
         extra-conf: |
           connect-timeout = 15
           download-attempts = 2
-
-    - name: Enable Magic Nix Cache
-      uses: DeterminateSystems/magic-nix-cache-action@84c0677f58dcedf3b91f8223ce36a9ea5b3c84b7 # v15
-      with:
-        use-gha-cache: enabled
-        use-flakehub: disabled
-        diagnostic-endpoint: ''
+          netrc-file = ${{ runner.temp }}/mlr-nix-netrc
+          extra-substituters = https://attic.litehub.io/deploy-toolchain
+          extra-trusted-public-keys = deploy-toolchain:9p4kYIdED5ifmOnE591RNJQde3ELXQjb0HRSbHJo5UM=
 
     - name: Provision deploy toolchain
       shell: bash

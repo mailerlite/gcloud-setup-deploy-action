@@ -20,6 +20,8 @@ jobs:
           persist-credentials: false
       - name: Provision from checkout
         uses: ./setup
+        with:
+          attic-token: ${{ secrets.ATTIC_PULL_TOKEN }}
       - name: Check Nix packages
         run: nix flake check ./nix --no-update-lock-file
       - name: Static and failure checks
@@ -30,11 +32,29 @@ jobs:
         run: |
           docker info > /dev/null
           docker buildx inspect > /dev/null
+      # Runs only after every check passed, so the cache holds verified toolchains.
+      - name: Push toolchain to Attic
+        env:
+          ATTIC_PUSH_TOKEN: ${{ secrets.ATTIC_PUSH_TOKEN }}
+        run: |
+          if [[ -z "$ATTIC_PUSH_TOKEN" ]]; then
+            echo '::notice::ATTIC_PUSH_TOKEN is unavailable; skipping cache push'
+            exit 0
+          fi
+          system="$(nix eval --impure --raw --expr builtins.currentSystem)"
+          out="$(nix build --no-link --print-out-paths --no-update-lock-file \
+            ./nix#default "./nix#checks.$system.versions")"
+          mapfile -t paths <<< "$out"
+          trap 'rm -f ~/.config/attic/config.toml' EXIT
+          nix develop ./nix --command attic login --set-default litehub https://attic.litehub.io "$ATTIC_PUSH_TOKEN"
+          nix develop ./nix --command attic push litehub:deploy-toolchain "${paths[@]}"
       - name: Remove first setup credentials
         if: always()
         uses: ./cleanup
       - name: Repeat setup in the same job
         uses: ./setup
+        with:
+          attic-token: ${{ secrets.ATTIC_PULL_TOKEN }}
       - name: Verify exported environment
         run: bash setup/version-table.sh
       - name: Remove runtime credentials

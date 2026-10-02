@@ -154,6 +154,7 @@
           default = pkgs.mkShell {
             packages = [
               pkgs.age
+              pkgs.attic-client
               pkgs.shellcheck
               pkgs.actionlint
               pkgs.nixfmt

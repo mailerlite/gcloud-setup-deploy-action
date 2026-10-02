@@ -28,6 +28,16 @@ class CleanupTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual((keep / 'important').read_text(), 'keep me')
 
+    def test_netrc_removed_without_auth_dir(self):
+        with tempfile.TemporaryDirectory() as directory:
+            netrc = Path(directory) / 'mlr-nix-netrc'
+            netrc.write_text('machine attic.litehub.io\npassword x\n')
+            env = os.environ | {'RUNNER_TEMP': directory}
+            env.pop('MLR_TOOLCHAIN_AUTH_DIR', None)
+            result = subprocess.run(['bash', str(ROOT / 'cleanup/cleanup.sh')], env=env)
+            self.assertEqual(result.returncode, 0)
+            self.assertFalse(netrc.exists(), 'cleanup kept the Attic netrc')
+
 
 if __name__ == '__main__':
     unittest.main()
