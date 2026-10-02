@@ -1,0 +1,11 @@
+---
+name: Clean up MailerLite toolchain credentials
+description: Remove runtime credentials after the last deployment operation; call with always().
+runs:
+  using: composite
+  steps:
+    - name: Remove runtime authentication
+      shell: bash
+      env:
+        TOOLCHAIN_ACTION_PATH: ${{ github.action_path }}
+      run: bash "$TOOLCHAIN_ACTION_PATH/cleanup.sh"

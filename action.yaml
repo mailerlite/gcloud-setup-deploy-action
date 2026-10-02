@@ -82,8 +82,14 @@ runs:
 
     - name: Authenticate with Google Cloud
       shell: bash
+      env:
+        SERVICE_ACCOUNT_KEY: ${{ inputs.service_account_key }}
       run: |
-        echo ${{ inputs.service_account_key }} | base64 -d > /tmp/key.json
+        umask 077
+        key_file="$(mktemp /tmp/mlr-key.XXXXXXXX)"
+        trap 'rm -f -- "$key_file"' EXIT
+        printf '%s' "$SERVICE_ACCOUNT_KEY" | base64 -d > "$key_file"
+        mv -fT -- "$key_file" /tmp/key.json
         gcloud auth activate-service-account --key-file=/tmp/key.json
 
     - name: Configure project and region
@@ -94,10 +100,10 @@ runs:
 
     - name: Docker/Helm Login
       shell: bash
-      run: |
-        gcloud auth configure-docker ${{ inputs.artifact_registry }} --quiet
-        gcloud auth application-default print-access-token | helm registry login -u oauth2accesstoken \
-          --password-stdin https://europe-docker.pkg.dev
+      env:
+        ARTIFACT_REGISTRY: ${{ inputs.artifact_registry }}
+        DEPLOY_ACTION_PATH: ${{ github.action_path }}
+      run: bash "$DEPLOY_ACTION_PATH/scripts/registry-login.sh"
 
     - name: Get Cluster Credentials
       shell: bash

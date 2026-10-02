@@ -1,0 +1,67 @@
+name: Deploy toolchain checks
+on:
+  pull_request:
+  push:
+    branches: ['feature/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  toolchain:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Provision from checkout
+        uses: ./setup
+        with:
+          attic-token: ${{ secrets.ATTIC_PULL_TOKEN }}
+      - name: Check Nix packages
+        run: nix flake check ./nix --no-update-lock-file
+      - name: Static and failure checks
+        run: nix develop ./nix --command bash tests/check.sh
+      - name: Check pinned store paths
+        run: bash scripts/update-store-paths.sh --check
+      - name: Check runner Docker access
+        run: |
+          docker info > /dev/null
+          docker buildx inspect > /dev/null
+      # Runs only after every check passed, so the cache holds verified toolchains.
+      - name: Push toolchain to Attic
+        # Pull requests from this repository also trigger a push run for the same commit.
+        if: github.event_name != 'pull_request'
+        env:
+          ATTIC_PUSH_TOKEN: ${{ secrets.ATTIC_PUSH_TOKEN }}
+          ATTIC_PUSH_ENDPOINT: ${{ vars.ATTIC_PUSH_ENDPOINT || 'https://attic.litehub.io' }}
+        run: |
+          if [[ -z "$ATTIC_PUSH_TOKEN" ]]; then
+            echo '::notice::ATTIC_PUSH_TOKEN is unavailable; skipping cache push'
+            exit 0
+          fi
+          system="$(nix eval --impure --raw --expr builtins.currentSystem)"
+          out="$(nix build --no-link --print-out-paths --no-update-lock-file \
+            ./nix#default "./nix#checks.$system.versions")"
+          mapfile -t paths <<< "$out"
+          trap 'rm -f ~/.config/attic/config.toml' EXIT
+          nix develop ./nix --command attic login --set-default litehub "$ATTIC_PUSH_ENDPOINT" "$ATTIC_PUSH_TOKEN"
+          # The whole closure, so setup can prefer Attic over cache.nixos.org.
+          nix develop ./nix --command attic push --jobs 2 --ignore-upstream-cache-filter \
+            litehub:deploy-toolchain "${paths[@]}"
+      - name: Remove first setup credentials
+        if: always()
+        uses: ./cleanup
+      - name: Repeat setup in the same job
+        uses: ./setup
+        with:
+          attic-token: ${{ secrets.ATTIC_PULL_TOKEN }}
+      - name: Verify exported environment
+        run: bash setup/version-table.sh
+      - name: Remove runtime credentials
+        if: always()
+        uses: ./cleanup

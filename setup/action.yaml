@@ -1,0 +1,47 @@
+---
+name: Setup MailerLite deploy toolchain
+description: Install the locked Nix toolchain on Linux x64 or arm64 from the Attic cache.
+inputs:
+  attic-token:
+    description: Attic pull token for the deploy-toolchain cache, normally secrets.ATTIC_PULL_TOKEN.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Validate runner
+      shell: bash
+      run: |
+        case "$RUNNER_OS/$RUNNER_ARCH" in
+          Linux/X64|Linux/ARM64) ;;
+          *) echo '::error::Supported runners: Linux X64 and ARM64'; exit 1 ;;
+        esac
+
+    - name: Configure Attic access
+      shell: bash
+      env:
+        ATTIC_TOKEN: ${{ inputs.attic-token }}
+        TOOLCHAIN_ACTION_PATH: ${{ github.action_path }}
+      run: bash "$TOOLCHAIN_ACTION_PATH/cache-auth.sh"
+
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      with:
+        determinate: false
+        source-tag: v3.22.5
+        nix-package-url: https://releases.nixos.org/nix/nix-2.35.2/nix-2.35.2-${{ runner.arch == 'ARM64' && 'aarch64' || 'x86_64' }}-linux.tar.xz
+        github-token: ${{ github.token }}
+        extra-conf: |
+          connect-timeout = 15
+          download-attempts = 2
+          # Skip a failing substituter instead of aborting; Nix then uses cache.nixos.org or builds.
+          fallback = true
+          netrc-file = ${{ runner.temp }}/mlr-nix-netrc
+          # Ahead of cache.nixos.org (40): CI pushes the full closure, zstd-compressed.
+          extra-substituters = https://attic.litehub.io/deploy-toolchain?priority=10
+          extra-trusted-public-keys = deploy-toolchain:9p4kYIdED5ifmOnE591RNJQde3ELXQjb0HRSbHJo5UM=
+
+    - name: Provision deploy toolchain
+      shell: bash
+      env:
+        TOOLCHAIN_ACTION_PATH: ${{ github.action_path }}
+      run: timeout --kill-after=10s 300s bash "$TOOLCHAIN_ACTION_PATH/provision.sh" "$TOOLCHAIN_ACTION_PATH/.."
