@@ -33,6 +33,8 @@ runs:
         extra-conf: |
           connect-timeout = 15
           download-attempts = 2
+          # Skip a failing substituter instead of aborting; Nix then uses cache.nixos.org or builds.
+          fallback = true
           netrc-file = ${{ runner.temp }}/mlr-nix-netrc
           extra-substituters = https://attic.litehub.io/deploy-toolchain
           extra-trusted-public-keys = deploy-toolchain:9p4kYIdED5ifmOnE591RNJQde3ELXQjb0HRSbHJo5UM=

@@ -95,8 +95,10 @@ from upstream sources.
 
 `setup/cache-auth.sh` writes the token to a netrc in `RUNNER_TEMP` before Nix is
 installed and checks it against the cache. A rejected token (HTTP 401/403/404) fails
-setup; an unreachable cache only warns, and Nix fetches and builds the missing paths
-itself. Cleanup removes the netrc.
+setup; an unreachable cache only warns. Setup sets `fallback = true`, so a cache that
+fails mid-run (HTTP 5xx) is disabled for 60 seconds instead of aborting the build;
+Nix then fetches from cache.nixos.org and builds the remaining paths itself. Cleanup
+removes the netrc.
 
 Operations, run by SRE with an admin token on the Attic server:
 
