@@ -1,5 +1,5 @@
 {
-  description = "Pinned deploy packages and plugins for the MailerLite toolchain";
+  description = "Pinned deploy packages for the MailerLite toolchain";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
@@ -13,12 +13,10 @@
       forEachSystem = nixpkgs.lib.genAttrs systems;
       versions = {
         helm = "3.21.4";
-        helmSecrets = "4.7.6";
         kubectl = "1.35.8";
         skaffold = "2.24.0";
         cue = "0.17.1";
         gh = "2.97.0";
-        sops = "3.13.3";
         jq = "1.7.1";
       };
       packagesFor =
@@ -58,28 +56,32 @@
               arm64 = "b54c04b4e0b2540bbdc08c17a121dab70e9a2ed0de5705528fec68a5fd3b85a7";
             };
           };
-          helmSecrets = pkgs.kubernetes-helmPlugins.helm-secrets.overrideAttrs (_: {
-            version = versions.helmSecrets;
-            src = pkgs.fetchFromGitHub {
-              owner = "jkroepke";
-              repo = "helm-secrets";
-              rev = "v${versions.helmSecrets}";
-              hash = "sha256-gCsXnZCvQqc5PIQGheOdzZ1YSUNDhbMvJIROMGA65Jg=";
-            };
-            postPatch = ''
-              sed -i 's/^version:.*/version: "${versions.helmSecrets}"/' plugin.yaml
-            '';
-          });
-          # gcloud and its GKE auth plugin follow the nixpkgs release pinned in
-          # flake.lock; bump them by updating the lock.
-          sdk = pkgs.google-cloud-sdk;
         in
         {
-          gcloud = sdk.withExtraComponents [ sdk.components.gke-gcloud-auth-plugin ];
-          helm = pkgs.wrapHelm helm { plugins = [ helmSecrets ]; };
-          # The nixpkgs sops is also the one the helm-secrets wrapper uses; the
-          # version check fails if a lock bump moves it off the pin.
-          inherit (pkgs) sops;
+          # gcloud follows the nixpkgs release pinned in flake.lock; bump it by
+          # updating the lock. Deploys use core commands only, so this build drops
+          # gsutil, bq and NumPy (only used for IAP TCP forwarding), about 250 MiB.
+          # cache.nixos.org does not have this build; CI pushes it to Attic.
+          gcloud = (pkgs.google-cloud-sdk.override { with-numpy = false; }).overrideAttrs (old: {
+            postInstall = ''
+              sdk=$out/google-cloud-sdk
+              rm -r $sdk/platform/gsutil $sdk/platform/bq
+              rm $sdk/.install/{bq,bq-nix,gsutil,gsutil-nix}.{manifest,snapshot.json}
+              rm $out/bin/{gsutil,bq} $sdk/bin/{gsutil,bq,.gsutil-wrapped,.bq-wrapped}
+              rm $out/share/bash-completion/completions/gsutil $out/share/zsh/site-functions/_gsutil
+              rm -f $out/share/fish/vendor_completions.d/gsutil.fish
+            ''
+            + old.postInstall;
+            installCheckPhase = ''
+              export HOME=$(mktemp -d)
+              $out/bin/gcloud version --format json | jq '."Google Cloud SDK"' | grep "${old.version}"
+              $out/bin/gcloud container clusters get-credentials --help > /dev/null
+            '';
+          });
+          # The platform-specific component that holds the binary, kept out of the
+          # SDK; kubectl finds it on PATH.
+          gke-gcloud-auth-plugin = builtins.head pkgs.google-cloud-sdk.components.gke-gcloud-auth-plugin.dependencies;
+          inherit helm;
           kubectl = release {
             pname = "kubectl";
             version = versions.kubectl;
@@ -153,7 +155,6 @@
         {
           default = pkgs.mkShell {
             packages = [
-              pkgs.age
               pkgs.attic-client
               pkgs.shellcheck
               pkgs.actionlint
@@ -180,12 +181,10 @@
                 export HOME="$TMPDIR/home"
                 mkdir -p "$HOME"
                 helm version --short | grep -F 'v${versions.helm}'
-                helm plugin list | grep -E 'secrets[[:space:]]+${versions.helmSecrets}'
                 kubectl version --client -o json | grep -F 'v${versions.kubectl}'
                 skaffold version | grep -Fx 'v${versions.skaffold}'
                 cue version | grep -Fx 'cue version v${versions.cue}'
                 gh --version | grep -F 'gh version ${versions.gh} '
-                sops --disable-version-check --version | grep -Fx 'sops ${versions.sops}'
                 jq --version | grep -Fx 'jq-${versions.jq}'
                 gcloud --version | grep -F 'Google Cloud SDK ${pkgs.google-cloud-sdk.version}'
                 gke-gcloud-auth-plugin --version

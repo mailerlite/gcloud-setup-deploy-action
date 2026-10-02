@@ -10,27 +10,40 @@ case "${RUNNER_OS:-}/${RUNNER_ARCH:-}" in
   Linux/ARM64) system=aarch64-linux ;;
   *) fail 'Supported runners: Linux X64 and ARM64' ;;
 esac
-for file in nix/flake.nix nix/flake.lock; do
+for file in nix/flake.nix nix/flake.lock nix/store-paths.json; do
   [[ -f "$src/$file" ]] || fail "Missing required file: $file"
 done
 python3 -m json.tool "$src/nix/flake.lock" >/dev/null 2>&1 || fail 'Invalid JSON: nix/flake.lock'
+pinned="$(python3 -c '
+import json, sys
+p = json.load(open(sys.argv[1]))[sys.argv[2]]
+print(p["tools"], p["check"])
+' "$src/nix/store-paths.json" "$system" 2>/dev/null)" || fail 'Invalid nix/store-paths.json'
+read -r tools check <<< "$pinned"
+[[ "$tools" == /nix/store/* && "$check" == /nix/store/* ]] || fail 'Invalid nix/store-paths.json'
 
 phase=bootstrap
 trap 'echo "::error::Toolchain setup failed during $phase; no environment was exported." >&2' ERR
 [[ "$(nix --version)" == 'nix (Nix) 2.35.2' ]] || fail 'Expected upstream Nix 2.35.2; use a fresh supported runner'
 
-# path: copies only the flake directory, so the action checkout need not be a Git
-# repository and is never written to. A lock that needs changes is an error.
-flake="path:$src/nix"
 phase=installation
-tools="$(nix build --no-link --print-out-paths --no-update-lock-file "$flake#default")"
-phase="version-verification"
-nix build --no-link --no-update-lock-file "$flake#checks.$system.versions"
+# CI publishes these paths after building them from the flake, so fetching them
+# skips the nixpkgs download and evaluation. The check path only exists if its
+# version checks passed.
+if ! nix build --no-link "$tools" "$check"; then
+  echo '::warning::Pinned toolchain is not cached; building it from the flake' >&2
+  # path: copies only the flake directory, so the action checkout need not be a
+  # Git repository and is never written to. A lock that needs changes is an error.
+  flake="path:$src/nix"
+  tools="$(nix build --no-link --print-out-paths --no-update-lock-file "$flake#default")"
+  phase="version-verification"
+  nix build --no-link --no-update-lock-file "$flake#checks.$system.versions"
+fi
 phase="tool-verification"
 
-# Plugins are packaged by the Helm wrapper, not inherited from a container.
+# Helm runs without plugins; nothing is inherited from a container or the host.
 unset HELM_PLUGINS CLOUDSDK_PYTHON
-for tool in gcloud gke-gcloud-auth-plugin helm kubectl skaffold cue gh sops jq; do
+for tool in gcloud gke-gcloud-auth-plugin helm kubectl skaffold cue gh jq; do
   [[ -x "$tools/bin/$tool" ]] || fail "Missing tool: $tool"
 done
 versions="$(PATH="$tools/bin:$PATH" bash "$src/setup/version-table.sh")"

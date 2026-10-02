@@ -36,7 +36,8 @@ runs:
           # Skip a failing substituter instead of aborting; Nix then uses cache.nixos.org or builds.
           fallback = true
           netrc-file = ${{ runner.temp }}/mlr-nix-netrc
-          extra-substituters = https://attic.litehub.io/deploy-toolchain
+          # Ahead of cache.nixos.org (40): CI pushes the full closure, zstd-compressed.
+          extra-substituters = https://attic.litehub.io/deploy-toolchain?priority=10
           extra-trusted-public-keys = deploy-toolchain:9p4kYIdED5ifmOnE591RNJQde3ELXQjb0HRSbHJo5UM=
 
     - name: Provision deploy toolchain

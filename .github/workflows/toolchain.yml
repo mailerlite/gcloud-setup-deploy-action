@@ -26,8 +26,8 @@ jobs:
         run: nix flake check ./nix --no-update-lock-file
       - name: Static and failure checks
         run: nix develop ./nix --command bash tests/check.sh
-      - name: Exercise Helm secrets with a local fixture
-        run: nix develop ./nix --command bash tests/secrets.sh
+      - name: Check pinned store paths
+        run: bash scripts/update-store-paths.sh --check
       - name: Check runner Docker access
         run: |
           docker info > /dev/null
@@ -38,6 +38,7 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           ATTIC_PUSH_TOKEN: ${{ secrets.ATTIC_PUSH_TOKEN }}
+          ATTIC_PUSH_ENDPOINT: ${{ vars.ATTIC_PUSH_ENDPOINT || 'https://attic.litehub.io' }}
         run: |
           if [[ -z "$ATTIC_PUSH_TOKEN" ]]; then
             echo '::notice::ATTIC_PUSH_TOKEN is unavailable; skipping cache push'
@@ -48,8 +49,10 @@ jobs:
             ./nix#default "./nix#checks.$system.versions")"
           mapfile -t paths <<< "$out"
           trap 'rm -f ~/.config/attic/config.toml' EXIT
-          nix develop ./nix --command attic login --set-default litehub https://attic.litehub.io "$ATTIC_PUSH_TOKEN"
-          nix develop ./nix --command attic push --jobs 2 litehub:deploy-toolchain "${paths[@]}"
+          nix develop ./nix --command attic login --set-default litehub "$ATTIC_PUSH_ENDPOINT" "$ATTIC_PUSH_TOKEN"
+          # The whole closure, so setup can prefer Attic over cache.nixos.org.
+          nix develop ./nix --command attic push --jobs 2 --ignore-upstream-cache-filter \
+            litehub:deploy-toolchain "${paths[@]}"
       - name: Remove first setup credentials
         if: always()
         uses: ./cleanup

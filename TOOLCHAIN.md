@@ -1,9 +1,12 @@
 # Deploy toolchain
 
 This candidate pins the Docker baseline's Helm 3.21.4, kubectl 1.35.8,
-skaffold 2.24.0, cue 0.17.1, gh 2.97.0, sops 3.13.3 and jq 1.7.1 exactly, and
-helm-secrets at 4.7.6. All of them are defined in a single Nix flake. gcloud and its GKE auth plugin follow the nixpkgs release
-pinned in `nix/flake.lock` (565.0.0 today) rather than the Docker image's 575.0.1.
+skaffold 2.24.0, cue 0.17.1, gh 2.97.0 and jq 1.7.1 exactly. All of them are
+defined in a single Nix flake. gcloud and its GKE auth plugin follow the nixpkgs
+release pinned in `nix/flake.lock` (565.0.0 today) rather than the Docker image's
+575.0.1. gcloud is slimmed: deploys use none of gsutil, bq or NumPy (only needed
+for IAP TCP forwarding), so they are removed. sops and helm-secrets are not
+included, matching the mise-based swiss-army-knife image.
 Docker CLI/buildx/daemon, Python 3, Bash and GNU coreutils are runner prerequisites.
 The gcloud wrapper supplies its own Python through Nix.
 
@@ -16,11 +19,17 @@ not supported by setup.
 
 - `nix/flake.nix` defines every tool and its version in one `versions` set, and a
   `checks.<system>.versions` derivation that asserts them. `nix/flake.lock` pins
-  the maintained nixpkgs collection used for gcloud, sops and the Helm plugin.
+  the maintained nixpkgs collection used for gcloud and its auth plugin.
+- `nix/store-paths.json` records the tool environment and version check output
+  paths per system. `scripts/update-store-paths.sh` regenerates it by evaluation
+  only, on any host; CI fails if it is stale, so commit it with every flake change.
 - `setup/action.yaml` pins the installer and upstream Nix 2.35.2.
-  `setup/provision.sh` builds the flake's default package and version check from
-  the action's `nix/` directory without updating its lock, then exports the single
-  tool directory and runtime environment for later steps.
+  `setup/provision.sh` fetches the pinned paths directly, skipping the nixpkgs
+  download and flake evaluation. Fetching the version check proves its checks
+  passed in CI. If the paths are not cached, it warns and builds the flake's default
+  package and version check from the action's `nix/` directory without updating
+  its lock. It then exports the single tool directory and runtime environment for
+  later steps.
 - `cleanup/` removes the separate runtime authentication directory and `/tmp/key.json`.
   Use it after the job's final tool operation with `if: always()`.
 
@@ -71,11 +80,11 @@ pins its URL and public key `deploy-toolchain:9p4kYIdED5ifmOnE591RNJQde3ELXQjb0H
 Nix only accepts paths signed by that key or cache.nixos.org's. The token
 controls who can download, the key controls what runners trust.
 
-The cache holds only paths cache.nixos.org does not serve: the release binaries,
-the Helm wrapper and plugin, the GKE auth plugin, gcloud's component join, the tool
-environment and its version check. Attic skips paths signed by `cache.nixos.org-1`
-on push, and its priority 41 ranks after cache.nixos.org's 40, so shared paths such
-as the gcloud SDK keep coming from that CDN. One cache serves every branch and
+The cache holds the toolchain's whole closure, including paths cache.nixos.org also
+serves (`attic push --ignore-upstream-cache-filter`), stored zstd-compressed. Setup
+gives it priority 10 in the substituter URL, ahead of cache.nixos.org's 40, so the
+whole toolchain comes from Attic and cache.nixos.org only fills gaps. The slimmed
+gcloud is a custom build that only Attic has. One cache serves every branch and
 environment: store paths are derived from `nix/flake.nix` and `nix/flake.lock`, so
 callers pinning the same action SHA share one toolchain.
 
@@ -90,8 +99,14 @@ Two tokens, both kept in 1Password and synced to GitHub:
 
 `toolchain.yml` pushes the tool environment and version check on both architectures
 after every check has passed, so a commit's toolchain is cached once its CI is green.
-Pin callers only to such commits; an uncached toolchain still installs, but builds
-from upstream sources.
+Pin callers only to such commits; an uncached toolchain still installs, but evaluates
+the flake and builds from upstream sources, gcloud included, which takes minutes.
+
+Pushes upload each path uncompressed in one request; the SDK is about 420 MiB. A
+proxy in front of Attic must accept such bodies (Cloudflare's proxy caps them at
+100 MB). The repository variable `ATTIC_PUSH_ENDPOINT` points pushes at a different
+host, such as a DNS-only name; atticd's `allowed-hosts` must include it. Runners
+keep downloading through `attic.litehub.io`.
 
 `setup/cache-auth.sh` writes the token to a netrc in `RUNNER_TEMP` before Nix is
 installed and checks it against the cache. A rejected token (HTTP 401/403/404) fails
@@ -126,14 +141,13 @@ in the maintained package collection:
   none; use the release asset digests from
   `gh api repos/cue-lang/cue/releases/tags/vX.Y.Z`). Tarballs also name the
   executable's path inside the archive.
-- helm-secrets reuses the nixpkgs recipe and wrapper, overriding only the source
-  tag. Update the version and the `nix store prefetch-file --json --unpack URL`
-  hash together.
-- sops, gcloud and the GKE auth plugin are the stock nixpkgs packages; the Helm
-  wrapper uses the same sops. Bump them with `nix flake update --flake ./nix`.
-  The version check fails if the bump moves sops off its pin; either update the
-  pin or package sops like the release tools. Review the gcloud version change in
-  the summary and release notes, and run package checks.
+- gcloud and the GKE auth plugin come from nixpkgs. Bump them with
+  `nix flake update --flake ./nix`. gcloud overrides the nixpkgs package to drop
+  gsutil, bq and NumPy; if a bump changes the package's layout, the build fails on
+  the removal step. Review the gcloud version change in the summary and release
+  notes, and run package checks.
+- After any change under `nix/`, run `scripts/update-store-paths.sh` and commit
+  `nix/store-paths.json` with it.
 
 Keep the custom definitions only while the exact versions require them. Prefer
 maintained nixpkgs recipes when matching packages become available. `nix/flake.nix`
@@ -146,8 +160,8 @@ fixes rather than major version jumps.
 read-only repository permissions and no deployment credentials; it only receives
 the Attic tokens. It covers both
 Linux architectures, actual toolchain installation, Nix package checks, static checks,
-missing/corrupt configuration, repeated setup, version checks, Docker availability
-and Helm secret decryption using a local age fixture.
+missing/corrupt configuration, repeated setup, version checks, pinned store paths
+and Docker availability.
 
 Run local script tests with `python3 -m unittest discover -s tests -p 'test_*.py'`.
 On a supported Linux runner after setup, use `nix develop ./nix --command bash

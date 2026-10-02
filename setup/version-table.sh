@@ -3,13 +3,12 @@
 set -euo pipefail
 printf '### Deploy toolchain\n\n```text\n'
 nix --version
-for tool in gcloud gke-gcloud-auth-plugin helm kubectl skaffold cue gh sops jq; do
+for tool in gcloud gke-gcloud-auth-plugin helm kubectl skaffold cue gh jq; do
   printf '\n%s: %s\n' "$tool" "$(command -v "$tool")"
   case "$tool" in
-    helm) helm version --short; helm plugin list ;;
+    helm) helm version --short ;;
     kubectl) kubectl version --client ;;
     skaffold|cue) "$tool" version ;;
-    sops) sops --disable-version-check --version ;;
     *) "$tool" --version ;;
   esac
 done

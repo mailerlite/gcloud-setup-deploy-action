@@ -1,0 +1,10 @@
+{
+  "aarch64-linux": {
+    "tools": "/nix/store/vndmhvpjw7wqjcvf1p92hgd53phlw7p1-mlr-deploy-tools",
+    "check": "/nix/store/6hfxrr6c4aiph6nkgask6mjvy424dqql-deploy-toolchain-checks"
+  },
+  "x86_64-linux": {
+    "tools": "/nix/store/sk9a7m4i41g65q24jlrhxcw9x3g10fi6-mlr-deploy-tools",
+    "check": "/nix/store/zrlni0kr92smj55yqq884najv0vmm75f-deploy-toolchain-checks"
+  }
+}
