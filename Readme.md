@@ -4,9 +4,36 @@ Please be aware that we introduced a breaking change here in that you must use h
 
 Gcloud SDK version 319 and above to allow container commands to be run as not part of the beta group.
 
-# Required Inputs: *
+# Authentication
 
-**service_account_key** - A **base64-encoded** Google service account key that has access to an artifact registry in the configured project.
+The action authenticates gcloud in one of two ways, checked in this order:
+
+1. `service_account_key` is set: a **base64-encoded** service account key, activated with `gcloud auth activate-service-account`. The decoded key is written to a temp file that is removed when the step ends.
+2. `service_account_key` is empty and `GOOGLE_GHA_CREDS_PATH` is set: the credentials file written by [google-github-actions/auth](https://github.com/google-github-actions/auth) with `create_credentials_file: true` (the default). This is the Workload Identity Federation path; the calling job needs `permissions: id-token: write`.
+
+If neither is available the action fails before doing anything else.
+
+``` yaml
+permissions:
+  contents: read
+  id-token: write
+steps:
+  - uses: actions/checkout@v4
+  - uses: google-github-actions/auth@v3
+    with:
+      workload_identity_provider: projects/377166114491/locations/global/workloadIdentityPools/github/providers/github
+      service_account: ghactions-app-deploy-dev@mailerlitehub.iam.gserviceaccount.com
+  - uses: mailerlite/gcloud-setup-deploy-action@v3.2.0
+    with:
+      project: "mailerlite-gcp"
+      zone: "europe-west4"
+      cluster: "dev-app"
+      skaffold_profile: "dev"
+```
+
+The credentials file lands in `GITHUB_WORKSPACE`, which is usually the docker build context. Add `gha-creds-*.json` to `.dockerignore` in repositories that build images with this action.
+
+# Required Inputs: *
 
 **project** - The Google account project
 
@@ -15,6 +42,8 @@ Gcloud SDK version 319 and above to allow container commands to be run as not pa
 # Optional Inputs:
 
 Based on what you wish to do in this action.
+
+**service_account_key** - A **base64-encoded** Google service account key. Leave empty when using Workload Identity Federation (see Authentication).
 
 **cluster** - The k8s cluster name that gcloud auth and skaffold will use, this input is used to toggle the skaffold deployment, without it cluster auth will not be run.
 
