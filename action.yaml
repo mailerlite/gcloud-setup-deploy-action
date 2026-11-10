@@ -2,8 +2,8 @@ name: "gcloud Setup and deploy action"
 description: "Setup docker auth and kubernetes auth and deploy via skaffold"
 inputs:
   service_account_key:
-    description: "Google Service Key"
-    required: true
+    description: "Base64 service account key. Leave empty when google-github-actions/auth already ran with create_credentials_file: true (workload identity)"
+    required: false
     default: ""
   project:
     description: "Google Project"
@@ -82,28 +82,49 @@ runs:
 
     - name: Authenticate with Google Cloud
       shell: bash
+      env:
+        SERVICE_ACCOUNT_KEY: ${{ inputs.service_account_key }}
       run: |
-        echo ${{ inputs.service_account_key }} | base64 -d > /tmp/key.json
-        gcloud auth activate-service-account --key-file=/tmp/key.json
+        set -euo pipefail
+        if [[ -n "$SERVICE_ACCOUNT_KEY" ]]; then
+          key="$(mktemp)"
+          trap 'rm -f "$key"' EXIT
+          base64 -d <<<"$SERVICE_ACCOUNT_KEY" >"$key"
+          gcloud auth activate-service-account --key-file="$key"
+        elif [[ -n "${GOOGLE_GHA_CREDS_PATH:-}" ]]; then
+          # Credentials file exported by google-github-actions/auth (workload identity).
+          gcloud auth login --quiet --cred-file="$GOOGLE_GHA_CREDS_PATH"
+        else
+          echo "::error::Pass service_account_key, or run google-github-actions/auth with create_credentials_file: true before this action."
+          exit 1
+        fi
 
     - name: Configure project and region
       shell: bash
+      env:
+        PROJECT: ${{ inputs.project }}
+        ZONE: ${{ inputs.zone }}
       run: |
-        gcloud --quiet config set project ${{ inputs.project }}
-        gcloud --quiet config set compute/zone ${{ inputs.zone }}
+        gcloud --quiet config set project "$PROJECT"
+        gcloud --quiet config set compute/zone "$ZONE"
 
     - name: Docker/Helm Login
       shell: bash
+      env:
+        ARTIFACT_REGISTRY: ${{ inputs.artifact_registry }}
       run: |
-        gcloud auth configure-docker ${{ inputs.artifact_registry }} --quiet
-        gcloud auth application-default print-access-token | helm registry login -u oauth2accesstoken \
+        gcloud auth configure-docker "$ARTIFACT_REGISTRY" --quiet
+        gcloud auth print-access-token | helm registry login -u oauth2accesstoken \
           --password-stdin https://europe-docker.pkg.dev
 
     - name: Get Cluster Credentials
       shell: bash
+      env:
+        CLUSTER: ${{ inputs.cluster }}
+        ZONE: ${{ inputs.zone }}
       run: |
-        if [ -n "${{ inputs.cluster }}" ]; then
-          gcloud container clusters get-credentials ${{ inputs.cluster }} --zone=${{ inputs.zone }}
+        if [ -n "$CLUSTER" ]; then
+          gcloud container clusters get-credentials "$CLUSTER" --zone="$ZONE"
         fi
 
     - name: Set appVersion
