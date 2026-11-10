@@ -107,6 +107,11 @@ runs:
       run: |
         gcloud --quiet config set project "$PROJECT"
         gcloud --quiet config set compute/zone "$ZONE"
+        # google-github-actions/auth exports CLOUDSDK_CORE_PROJECT set to the service
+        # account's own project, and environment beats `gcloud config`. Override it so
+        # every later gcloud call in this job, including pre/post run commands, targets
+        # the project this action was given.
+        echo "CLOUDSDK_CORE_PROJECT=$PROJECT" >> "$GITHUB_ENV"
 
     - name: Docker/Helm Login
       shell: bash
@@ -122,9 +127,10 @@ runs:
       env:
         CLUSTER: ${{ inputs.cluster }}
         ZONE: ${{ inputs.zone }}
+        PROJECT: ${{ inputs.project }}
       run: |
         if [ -n "$CLUSTER" ]; then
-          gcloud container clusters get-credentials "$CLUSTER" --zone="$ZONE"
+          gcloud container clusters get-credentials "$CLUSTER" --zone="$ZONE" --project="$PROJECT"
         fi
 
     - name: Set appVersion
